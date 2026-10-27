@@ -107,6 +107,7 @@ html[data-th=dark] #ind{background:linear-gradient(180deg,rgba(255,255,255,.24),
 .ev{padding:0;overflow:hidden}.evt{display:flex;gap:10px;align-items:center;padding:11px 14px;background:linear-gradient(90deg,rgba(47,140,255,.16),transparent)}
 .evt .ico{font-size:24px}.evt .g{flex:1;min-width:0}.sav{flex:none;padding:4px 10px;border-radius:99px;background:rgba(47,140,255,.15);color:var(--ac);font-weight:800;font-size:12px}
 .tr{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--ln)}.tr .ti{font-size:18px}.tr .kv{flex:1;margin:0}
+.gb{font-size:13px;font-weight:700;padding:4px 11px;border-radius:8px;background:#e5f1ff;color:var(--b2)}html[data-th=dark] .gb{background:#173a66;color:var(--ac)}
 </style></head><body>
 <div class="wrap"><header><h1>🏛 Расписание USM</h1><p id="date"></p><span class="badge" id="wk"></span></header><main id="v"></main></div>
 <nav id="nav"><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav>
@@ -145,9 +146,8 @@ v.innerHTML=h;if(!S.sc){S.sc=1;if(dow>0&&dow<5)document.getElementById('d'+dow)?
 function setTab(b){document.querySelectorAll('#nav button').forEach((x,i)=>{x.classList.toggle('on',x==b);if(x==b)$('#ind').style.transform=`translateX(${i*100}%)`})}
 const num=m=>parseFloat(String(m).replace(',','.')),gc=m=>{const n=num(m);return isNaN(n)?'':n>=8?' g8':n>=5?' g5':' g1'};
 const sqr=l=>`<div class="sqw"><div class="sq ${l.s=='a'?'a':l.s=='g'?'g'+gc(l.m):'p'}">${l.s=='a'?'❌':l.s=='p'?'✅':esc(l.m)}</div><small>${esc(l.d)}</small></div>`;
-function evHtml(E){if(!E.length)return'';const av=a=>{a=a.filter(n=>!isNaN(n));return a.length?(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):'—'};
-let h=`<div class="evh"><div><small>⭐ Средний балл</small><b>${av(E.flatMap(e=>e.tests.map(t=>num(t.grade))))}</b></div><div><small>📝 Тестов</small><b>${E.reduce((n,e)=>n+e.tests.length,0)}</b></div><div><small>📚 Предметов</small><b>${E.length}</b></div></div>`;
-E.forEach((e,i)=>{h+=`<div class="card ev" style="animation-delay:${i*40}ms"><div class="evt"><div class="ico">📚</div><div class="g"><div class="kv"><small>Предмет:</small><b>${esc(e.subject)}</b></div><div class="kv"><small>👤 Преподаватель:</small>${esc(e.teacher)}</div></div><span class="sav">⌀ ${av(e.tests.map(t=>num(t.grade)))}</span></div>${e.tests.map(t=>`<div class="tr"><div class="ti">📝</div><div class="kv"><small>Тест:</small>${esc(t.name)}</div><div class="sq g${gc(t.grade)}">${esc(t.grade)}</div></div>`).join('')}</div>`});return h}
+function evHtml(E){if(!E.length)return'';let h='';
+E.forEach((e,i)=>{h+=`<div class="card ev" style="animation-delay:${i*40}ms"><div class="evt"><div class="ico">📚</div><div class="g"><div class="kv"><small>Предмет:</small><b>${esc(e.subject)}</b></div><div class="kv"><small>👤 Преподаватель:</small>${esc(e.teacher)}</div></div></div>${e.tests.map(t=>`<div class="tr"><div class="ti">📝</div><div class="kv"><small>Тест:</small>${esc(t.name)}</div><span class="gb">${esc(t.grade)}</span></div>`).join('')}</div>`});return h}
 const segc=(arr,cur,c)=>`<div class="seg">${arr.map(([k,l])=>`<button data-c="${c}" data-k="${k}" class="${k==cur?'on':''}">${l}</button>`).join('')}</div>`;
 const settings=()=>`<div class="card set"><div class="lbl">🎨 Тема</div>${segc(TH,S.th,'th')}<div class="lbl">🎓 Группа</div>${segc(GR,S.g,'g')}<div class="lbl">👥 Подгруппа</div>${segc(SG,S.sg,'sg')}</div>`;
 function onb(){v.innerHTML=`<div class="card hero ob"><div class="e">🏛</div><h2>Добро пожаловать!</h2><div class="d">Расписание, погода и журнал USM — всё в одном месте.<br>Выберите тему и свою группу</div></div>${settings()}<button class="btn" id="ok">Продолжить</button><div class="hint" style="text-align:center">Всё можно изменить позже в профиле</div>`;
@@ -171,7 +171,7 @@ try{const r=await fetch('/api/journal',{method:'POST',headers:{'Content-Type':'a
 let h=`<div class="seg"><button data-c="sub" data-k="att" class="${S.sub=='att'?'on':''}">Оценки</button><button data-c="sub" data-k="ev" class="${S.sub=='ev'?'on':''}">Тесты</button></div>`;
 if(S.sub=='att'){h+='<div class="lbl">Лимит пропусков — 33.3%</div>';if(!J.attendance.length)h+='<div class="card empty">Данных о посещаемости нет</div>';
 J.attendance.forEach((a,i)=>{const p=a.percent,col=p==null?'var(--b1)':p>=33.3?'var(--bad)':p>=20?'var(--warn)':'var(--ok)';
-h+=`<div class="card" style="animation-delay:${i*40}ms"><b>${esc(a.subject)}</b><div class="hint" style="margin:2px 0">👨‍🏫 ${esc(a.teacher)}</div><div class="bar"><i style="width:${Math.min(100,p||0)}%;background:${col}"></i></div><div class="st"><span>Пропуски: <b>${a.absences}${a.total?'/'+a.total:''}</b></span><span>${p!=null?'<b style="color:'+col+'">'+p+'%</b>':'всего пар неизвестно'}</span></div><div class="sqs">${a.logs.map(sqr).join('')}</div></div>`})}
+h+=`<div class="card" style="animation-delay:${i*40}ms"><b>${esc(a.subject)}</b><div class="hint" style="margin:2px 0">👨‍🏫 ${esc(a.teacher)}</div><div class="bar"><i style="width:${Math.min(100,p||0)}%;background:${col}"></i></div><div class="st"><span>Пропуски: <b>${a.absences}${a.total?'/'+a.total:''}</b></span><span>${p!=null?'<b style="color:'+col+'">'+p+'%</b>':'всего пар неизвестно'}</span></div><div class="dots">${a.logs.map(l=>`<span class="${l.s=='a'?'a':l.s=='g'?'g':''}">${l.s=='a'?'❌ ':l.s=='p'?'✓ ':'★ '+esc(l.m)+' · '}${esc(l.d)}</span>`).join('')}</div></div>`})}
 else{if(!J.evaluations.length)h+='<div class="card empty">Оценок за тесты пока нет</div>';
 h+=evHtml(J.evaluations)}
 h+='<button class="btn alt" id="ex">Выйти</button>';v.innerHTML=h;$('#ex').onclick=()=>{S.J=null;journal()}}
