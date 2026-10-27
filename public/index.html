@@ -86,9 +86,30 @@ html[data-th=dark] .set .seg{background:rgba(255,255,255,.06)}
 .li+.li{border-top:1px solid var(--ln)}.li span{font-size:18px}.li i{margin-left:auto;font-style:normal;color:var(--mut)}
 .foot{text-align:center;color:var(--mut);font-size:12px;margin:14px 8px 0}.foot a{color:var(--ac);font-weight:700;text-decoration:none}
 .kv{font-size:13.5px;margin:2px 0}.kv small{color:var(--mut);font-size:12px;margin-right:4px}.tst{padding:8px 0;border-top:1px solid var(--ln);overflow:hidden}
+
+.lesson .t{display:flex;align-items:center;gap:10px}.tx{flex:1;min-width:0}
+.lesson .t .rm{flex:none;text-align:center;padding:6px 11px;border-radius:12px;background:linear-gradient(135deg,rgba(47,140,255,.2),rgba(47,140,255,.08));border:1px solid rgba(47,140,255,.3);color:var(--ac);font-weight:800;font-size:14px}
+.rm small{display:block;font-size:9px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:.5px}
+.dh.td{display:inline-block;padding:5px 14px;border-radius:14px;background:linear-gradient(135deg,var(--b1),var(--b2));color:#fff;box-shadow:0 6px 16px rgba(11,91,211,.3)}
+nav{background:rgba(255,255,255,.22);backdrop-filter:blur(22px) saturate(1.8);-webkit-backdrop-filter:blur(22px) saturate(1.8);border:1px solid rgba(255,255,255,.6);box-shadow:0 10px 30px rgba(11,91,211,.18),inset 0 1px 1px rgba(255,255,255,.8);padding:6px}
+nav button{position:relative;z-index:1}nav button.on{background:none;color:var(--b2)}
+#ind{position:absolute;top:6px;bottom:6px;left:6px;width:calc((100% - 12px)/4);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.8),rgba(255,255,255,.35));border:1px solid rgba(255,255,255,.85);box-shadow:0 4px 14px rgba(47,140,255,.3),inset 0 1px 2px #fff;transition:transform .5s cubic-bezier(.3,1.5,.5,1)}
+html[data-th=dark] nav{background:rgba(30,50,80,.32);border-color:rgba(255,255,255,.14)}html[data-th=dark] nav button.on{background:none;color:#fff}
+html[data-th=dark] #ind{background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.08));border-color:rgba(255,255,255,.25);box-shadow:0 4px 14px rgba(0,0,0,.35),inset 0 1px 2px rgba(255,255,255,.3)}
+.sqs{display:flex;flex-wrap:wrap;gap:8px 7px;margin-top:10px}.sqw{display:flex;flex-direction:column;align-items:center;gap:2px;width:38px}.sqw small{font-size:9.5px;color:var(--mut)}
+.sq{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;background:linear-gradient(135deg,var(--sky),var(--b1));box-shadow:0 3px 8px rgba(47,140,255,.2)}
+.sq.p{background:#dcecff;font-size:15px;box-shadow:none}html[data-th=dark] .sq.p{background:#173a66}
+.sq.a{background:linear-gradient(135deg,#ff8a95,#ef4f5f);font-size:14px}
+.sq.g8{background:linear-gradient(135deg,#3fd69b,#19b37a)}.sq.g5{background:linear-gradient(135deg,#ffd45c,#f0a020);color:#4a3000}.sq.g1{background:linear-gradient(135deg,#ff8a95,#ef4f5f)}
+.evh{display:flex;gap:8px;margin-bottom:8px}.evh div{flex:1;text-align:center;padding:10px 4px;border-radius:16px;color:#fff;background:linear-gradient(135deg,#4aa3ff,#0b5bd3);box-shadow:var(--sh)}
+.evh div:nth-child(2){background:linear-gradient(135deg,#6fd0ff,#2f8cff)}.evh div:nth-child(3){background:linear-gradient(135deg,#3fd0c9,#1a9fb8)}
+.evh small{display:block;font-size:11px;opacity:.9}.evh b{font-size:22px}
+.ev{padding:0;overflow:hidden}.evt{display:flex;gap:10px;align-items:center;padding:11px 14px;background:linear-gradient(90deg,rgba(47,140,255,.16),transparent)}
+.evt .ico{font-size:24px}.evt .g{flex:1;min-width:0}.sav{flex:none;padding:4px 10px;border-radius:99px;background:rgba(47,140,255,.15);color:var(--ac);font-weight:800;font-size:12px}
+.tr{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--ln)}.tr .ti{font-size:18px}.tr .kv{flex:1;margin:0}
 </style></head><body>
 <div class="wrap"><header><h1>🏛 Расписание USM</h1><p id="date"></p><span class="badge" id="wk"></span></header><main id="v"></main></div>
-<nav id="nav"><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav>
+<nav id="nav"><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav>
 <script>
 const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#e8f3ff');tg.setBackgroundColor('#e8f3ff')}catch(e){}}
 const $=s=>document.querySelector(s),v=$('#v');
@@ -105,7 +126,7 @@ function applyTheme(){const d=S.th=='dark'||(S.th=='auto'&&(tg?tg.colorScheme=='
 applyTheme();
 $('#date').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
 const wkTxt=()=>($('#wk').textContent='🗓 '+(S.wk=='even'?'Чётная':'Нечётная')+' неделя');wkTxt();
-$('#nav').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.t=b.dataset.t;[...$('#nav').children].forEach(x=>x.classList.toggle('on',x==b));tg?.HapticFeedback?.selectionChanged();go()};
+$('#nav').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.t=b.dataset.t;setTab(b);tg?.HapticFeedback?.selectionChanged();go()};
 const go=()=>{$('#nav').style.display=S.ob?'none':'';document.querySelector('header').style.display=S.ob?'none':'';S.ob?onb():({sch:sched,w:weather,j:journal,p:profile})[S.t]()};
 const chips=(arr,cur,cb,pre='')=>`<div class="row">${arr.map(([k,l])=>`<button class="chip ${k==cur?'on':''}" data-k="${k}" data-c="${cb}">${pre}${l}</button>`).join('')}</div>`;
 v.onclick=e=>{const b=e.target.closest('[data-c]');if(!b)return;const k=b.dataset.k,c=b.dataset.c;tg?.HapticFeedback?.selectionChanged();
@@ -119,12 +140,18 @@ if(!mx)h+='<div class="card gap">🎉 Пар нет</div>';
 for(let n=1;n<=mx;n++){const tm=D.times[n]||'',l=L[n],[a,b]=tm.split('-').map(x=>{const[H,M]=x.split(':');return H*60+ +M});
 if(!l){h+=`<div class="card gap">🪟 Окно · ${tm}</div>`;continue}
 const cur=di==dow&&mm>=a&&mm<b,c=l.type[0]=='С'?'s':l.type[0]=='Л'&&l.type.length>6?'l':'';
-h+=`<div class="card lesson ${cur?'now':''}" style="animation-delay:${n*40}ms"><div class="n"><b>${n}</b><small>${tm.replace('-','<br>')}</small></div><div class="t"><span class="tag ${c}">${esc(l.type)}${cur?' · сейчас':''}</span><h3>${esc(l.subject)}</h3><div>👨‍🏫 ${esc(l.teacher)}</div><div>🚪 ${esc(l.room)}</div></div></div>`}});
+h+=`<div class="card lesson ${cur?'now':''}" style="animation-delay:${n*40}ms"><div class="n"><b>${n}</b><small>${tm.replace('-','<br>')}</small></div><div class="t"><div class="tx"><span class="tag ${c}">${esc(l.type)}${cur?' · сейчас':''}</span><h3>${esc(l.subject)}</h3><div>👨‍🏫 ${esc(l.teacher)}</div></div><div class="rm"><small>каб.</small>${esc(l.room)}</div></div></div>`}});
 v.innerHTML=h;if(!S.sc){S.sc=1;if(dow>0&&dow<5)document.getElementById('d'+dow)?.scrollIntoView()}}
+function setTab(b){document.querySelectorAll('#nav button').forEach((x,i)=>{x.classList.toggle('on',x==b);if(x==b)$('#ind').style.transform=`translateX(${i*100}%)`})}
+const num=m=>parseFloat(String(m).replace(',','.')),gc=m=>{const n=num(m);return isNaN(n)?'':n>=8?' g8':n>=5?' g5':' g1'};
+const sqr=l=>`<div class="sqw"><div class="sq ${l.s=='a'?'a':l.s=='g'?'g'+gc(l.m):'p'}">${l.s=='a'?'❌':l.s=='p'?'✅':esc(l.m)}</div><small>${esc(l.d)}</small></div>`;
+function evHtml(E){if(!E.length)return'';const av=a=>{a=a.filter(n=>!isNaN(n));return a.length?(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):'—'};
+let h=`<div class="evh"><div><small>⭐ Средний балл</small><b>${av(E.flatMap(e=>e.tests.map(t=>num(t.grade))))}</b></div><div><small>📝 Тестов</small><b>${E.reduce((n,e)=>n+e.tests.length,0)}</b></div><div><small>📚 Предметов</small><b>${E.length}</b></div></div>`;
+E.forEach((e,i)=>{h+=`<div class="card ev" style="animation-delay:${i*40}ms"><div class="evt"><div class="ico">📚</div><div class="g"><div class="kv"><small>Предмет:</small><b>${esc(e.subject)}</b></div><div class="kv"><small>👤 Преподаватель:</small>${esc(e.teacher)}</div></div><span class="sav">⌀ ${av(e.tests.map(t=>num(t.grade)))}</span></div>${e.tests.map(t=>`<div class="tr"><div class="ti">📝</div><div class="kv"><small>Тест:</small>${esc(t.name)}</div><div class="sq g${gc(t.grade)}">${esc(t.grade)}</div></div>`).join('')}</div>`});return h}
 const segc=(arr,cur,c)=>`<div class="seg">${arr.map(([k,l])=>`<button data-c="${c}" data-k="${k}" class="${k==cur?'on':''}">${l}</button>`).join('')}</div>`;
 const settings=()=>`<div class="card set"><div class="lbl">🎨 Тема</div>${segc(TH,S.th,'th')}<div class="lbl">🎓 Группа</div>${segc(GR,S.g,'g')}<div class="lbl">👥 Подгруппа</div>${segc(SG,S.sg,'sg')}</div>`;
 function onb(){v.innerHTML=`<div class="card hero ob"><div class="e">🏛</div><h2>Добро пожаловать!</h2><div class="d">Расписание, погода и журнал USM — всё в одном месте.<br>Выберите тему и свою группу</div></div>${settings()}<button class="btn" id="ok">Продолжить</button><div class="hint" style="text-align:center">Всё можно изменить позже в профиле</div>`;
-$('#ok').onclick=()=>{S.ob=0;save();S.t='sch';[...$('#nav').children].forEach(x=>x.classList.toggle('on',x.dataset.t=='sch'));go()}}
+$('#ok').onclick=()=>{S.ob=0;save();S.t='sch';setTab($('#nav button'));go()}}
 function profile(){const u=tg?.initDataUnsafe?.user,n=u?[u.first_name,u.last_name].filter(Boolean).join(' '):'Гость';
 const av=u?.photo_url?`<img class="ava" referrerpolicy="no-referrer" src="${esc(u.photo_url)}">`:`<div class="ava">${esc((n[0]||'?').toUpperCase())}</div>`;
 v.innerHTML=`<div class="card prof"><div class="ban"></div>${av}<div class="in"><h2 style="margin:8px 0 2px">${esc(n)}</h2>${u?`${u.username?`<span class="pill">@${esc(u.username)}</span>`:''}<span class="pill">ID ${esc(u.id)}</span>${u.is_premium?'<span class="pill">⭐ Premium</span>':''}`:'<div class="hint" style="margin:4px 0 0">Откройте из Telegram, чтобы увидеть профиль</div>'}</div></div><div class="lbl">Настройки</div>${settings()}<div class="card list"><button class="li" id="fg"><span>🔑</span>Забыть сохранённый IDNP<i>›</i></button><button class="li" id="rs" style="color:var(--bad)"><span>🔄</span>Сбросить настройки<i>›</i></button></div><p class="foot">Приложение находится в бета-версии. Дизайн со временем будет улучшаться. Возможны баги и ошибки. По всем вопросам писать: <a href="https://t.me/flawoxxx" id="ct">@flawoxxx</a></p>`;
@@ -141,12 +168,12 @@ function journal(){const J=S.J;if(!J){const sv=LS.g('idnp','');v.innerHTML=`<div
 $('#go').onclick=async()=>{const i=$('#id').value.trim(),er=$('#er');if(!/^\d{13}$/.test(i)){er.textContent='IDNP должен состоять ровно из 13 цифр';return}
 LS.s('idnp',$('#rm').checked?i:'');v.innerHTML='<div class="sk"></div>'.repeat(4);
 try{const r=await fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idnp:i,initData:tg?.initData||''})}),d=await r.json();if(!r.ok)throw Error(d.error);S.J=d}catch(x){S.J=null;journal();$('#er').textContent=x.message||'Ошибка';return}journal()};return}
-let h=`<div class="seg"><button data-c="sub" data-k="att" class="${S.sub=='att'?'on':''}">Посещаемость</button><button data-c="sub" data-k="ev" class="${S.sub=='ev'?'on':''}">Тесты</button></div>`;
+let h=`<div class="seg"><button data-c="sub" data-k="att" class="${S.sub=='att'?'on':''}">Оценки</button><button data-c="sub" data-k="ev" class="${S.sub=='ev'?'on':''}">Тесты</button></div>`;
 if(S.sub=='att'){h+='<div class="lbl">Лимит пропусков — 33.3%</div>';if(!J.attendance.length)h+='<div class="card empty">Данных о посещаемости нет</div>';
 J.attendance.forEach((a,i)=>{const p=a.percent,col=p==null?'var(--b1)':p>=33.3?'var(--bad)':p>=20?'var(--warn)':'var(--ok)';
-h+=`<div class="card" style="animation-delay:${i*40}ms"><b>${esc(a.subject)}</b><div class="hint" style="margin:2px 0">👨‍🏫 ${esc(a.teacher)}</div><div class="bar"><i style="width:${Math.min(100,p||0)}%;background:${col}"></i></div><div class="st"><span>Пропуски: <b>${a.absences}${a.total?'/'+a.total:''}</b></span><span>${p!=null?'<b style="color:'+col+'">'+p+'%</b>':'всего пар неизвестно'}</span></div><div class="dots">${a.logs.map(l=>`<span class="${l.s=='a'?'a':l.s=='g'?'g':''}">${l.s=='a'?'❌ ':l.s=='p'?'✓ ':'★ '+esc(l.m)+' · '}${esc(l.d)}</span>`).join('')}</div></div>`})}
+h+=`<div class="card" style="animation-delay:${i*40}ms"><b>${esc(a.subject)}</b><div class="hint" style="margin:2px 0">👨‍🏫 ${esc(a.teacher)}</div><div class="bar"><i style="width:${Math.min(100,p||0)}%;background:${col}"></i></div><div class="st"><span>Пропуски: <b>${a.absences}${a.total?'/'+a.total:''}</b></span><span>${p!=null?'<b style="color:'+col+'">'+p+'%</b>':'всего пар неизвестно'}</span></div><div class="sqs">${a.logs.map(sqr).join('')}</div></div>`})}
 else{if(!J.evaluations.length)h+='<div class="card empty">Оценок за тесты пока нет</div>';
-J.evaluations.forEach((e,i)=>{h+=`<div class="card" style="animation-delay:${i*40}ms"><div class="kv"><small>Предмет:</small><b>${esc(e.subject)}</b></div><div class="kv"><small>Преподаватель:</small>${esc(e.teacher)}</div><div style="margin-top:6px">${e.tests.map(t=>`<div class="tst"><span class="grade">${esc(t.grade)}</span><div class="kv"><small>Тест:</small>${esc(t.name)}</div></div>`).join('')}</div></div>`})}
+h+=evHtml(J.evaluations)}
 h+='<button class="btn alt" id="ex">Выйти</button>';v.innerHTML=h;$('#ex').onclick=()=>{S.J=null;journal()}}
 go();
 </script></body></html>
