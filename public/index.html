@@ -125,8 +125,16 @@ html[data-th=dark] #ind{background:linear-gradient(180deg,rgba(255,255,255,.24),
 .bub i{position:absolute;border-radius:50%;background-size:cover;background-position:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.75),inset -6px -8px 14px rgba(120,190,255,.45),0 4px 14px rgba(47,140,255,.35)}
 .bub i:after{content:"";position:absolute;left:18%;top:12%;width:30%;height:18%;border-radius:50%;background:rgba(255,255,255,.75);transform:rotate(-30deg);filter:blur(1px)}
 .li.hl{width:calc(100% - 12px);margin:6px;padding:12px 14px;border-radius:14px;color:#fff;font-weight:700;background:linear-gradient(135deg,var(--b1),var(--b2));box-shadow:0 6px 16px rgba(11,91,211,.3)}.li.hl i{color:#fff}.li.hl+.li{border-top:0}
+header{display:block;padding:14px 16px 14px}
+.hl{display:flex;align-items:center;gap:12px;min-width:0;position:relative;z-index:1}
+.hi{flex:none;width:46px;height:46px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:25px;background:rgba(255,255,255,.2);box-shadow:inset 0 1px 1px rgba(255,255,255,.4),0 4px 12px rgba(0,0,0,.12)}
+.ht{min-width:0;flex:1}
+header h1{font-size:19px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header p{margin:3px 0 0;font-size:12.5px;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header p::first-letter{text-transform:uppercase}
+.badge{display:inline-block;max-width:100%;margin-top:12px;padding:6px 14px;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.22);box-shadow:inset 0 1px 1px rgba(255,255,255,.35)}
 </style></head><body>
-<div class="wrap"><header><h1>🏛 Расписание USM</h1><p id="date"></p><span class="badge" id="wk"></span></header><main id="v"></main></div>
+<div class="wrap"><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1><p id="date"></p></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
 <nav id="nav"><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav><div id="rd" hidden><div class="rb"><button id="rx">‹</button><div class="rt" id="rt"></div><div class="rc" id="rc"></div></div><div id="sc"><div id="pgs"></div></div><div class="rf"><button id="zm">−</button><input type="range" id="sl" min="1" value="1"><button id="zp">+</button></div></div>
 <script>
 const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#e8f3ff');tg.setBackgroundColor('#e8f3ff')}catch(e){}}
