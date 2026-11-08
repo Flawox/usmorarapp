@@ -154,6 +154,8 @@ header p::first-letter{text-transform:uppercase}
 #fc{flex:none;font-size:12px;font-weight:700;color:var(--ac);min-width:34px;text-align:center}
 .pdfViewer .page{box-shadow:0 2px 10px rgba(11,91,211,.18)}
 #pgs{padding:0}#sc{padding:calc(62px + env(safe-area-inset-top)) 0 calc(66px + env(safe-area-inset-bottom));box-sizing:border-box}
+#rd .rb,#rd .rf,#rd .fb{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(255,255,255,.96)}
+html[data-th=dark] #rd .rb,html[data-th=dark] #rd .rf,html[data-th=dark] #rd .fb{background:rgba(14,26,44,.96)}
 </style></head><body>
 <div class="wrap"><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1><p id="date"></p></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
 <nav id="nav"><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav><div id="rd" hidden><div id="sc"><div id="pgs" class="pdfViewer"></div></div><div class="rb"><button id="rx">‹</button><div class="rt" id="rt"></div><div class="rc"><input id="gi" type="number" inputmode="numeric" min="1"><span id="gn"></span></div><button id="sb">🔍</button></div><div class="fb" id="fb" hidden><input id="fq" type="search" placeholder="Поиск по тексту"><span id="fc"></span><button id="fp">↑</button><button id="fn">↓</button></div><div class="ld" id="ldt" hidden></div><div class="rf"><button id="zm">−</button><button class="zl" id="zl">100%</button><button id="zp">+</button><input type="range" id="sl" min="1" value="1"></div></div>
@@ -219,19 +221,20 @@ let fp=null,fd=1e9;for(const x of pagesVis()){const r=x[1],d=cy<r.top?r.top-cy:c
 const lx=fp?cx-fp[1].left:0,ly=fp?cy-fp[1].top:0;PV.currentScale=n;const q=PV.currentScale/o;
 const fix=()=>{if(!fp)return;const R=fp[0].getBoundingClientRect();rsc.scrollTop+=R.top+ly*q-cy;rsc.scrollLeft+=R.left+lx*q-cx};fix();requestAnimationFrame(fix)};
 const zoomBy=k=>zoomAt(k,rsc.clientWidth/2,rsc.clientHeight/2);
-let gY=0,gT=0,gTm=0;
-const gate=e=>{const n=performance.now(),y=rsc.scrollTop,v=Math.abs(y-gY)/Math.max(1,n-gT);gY=y;gT=n;if(v>2.2&&PV){rsc.onscroll&&rsc.onscroll();e.stopImmediatePropagation();clearTimeout(gTm);gTm=setTimeout(()=>{try{PV&&PV.update()}catch(x){}},150)}};
-async function openBook(b){bk=b;rdy=0;rd.hidden=false;rd.classList.remove('hb');$('#rt').textContent=b.t;gi.value='';$('#gn').textContent='';rpg.innerHTML='';$('#fb').hidden=true;ldt.hidden=false;ldt.textContent='⏳ Загрузка учебника…';
+let gY=0,gT=0,gTm=0,eT=0;
+const evict=()=>{try{if(!PV||!PV._pages)return;const c=PV.currentPageNumber-1,vis=new Set(pagesVis().map(x=>x[0]));PV._pages.forEach((p,i)=>{if(Math.abs(i-c)>2&&p.renderingState!==0&&!vis.has(p.div))p.reset()})}catch(e){}};
+const gate=e=>{const n=performance.now(),y=rsc.scrollTop,v=Math.abs(y-gY)/Math.max(1,n-gT);gY=y;gT=n;clearTimeout(eT);eT=setTimeout(evict,300);if(v>1.4&&PV){rsc.onscroll&&rsc.onscroll();e.stopImmediatePropagation();clearTimeout(gTm);gTm=setTimeout(()=>{try{PV&&PV.update()}catch(x){}},150)}};
+async function openBook(b){bk=b;rdy=0;rd.hidden=false;document.querySelector('.wrap').style.visibility='hidden';$('#nav').style.visibility='hidden';rd.classList.remove('hb');$('#rt').textContent=b.t;gi.value='';$('#gn').textContent='';rpg.innerHTML='';$('#fb').hidden=true;ldt.hidden=false;ldt.textContent='⏳ Загрузка учебника…';
 tg?.BackButton?.show();tg?.BackButton?.onClick(closeBook);const sp=LS.g('pg'+b.id,1);
 try{if(!window.pdfjsViewer){const l=document.createElement('link');l.rel='stylesheet';l.href=PJ+'web/pdf_viewer.css';document.head.appendChild(l);await ld(PJ+'build/pdf.min.js');pdfjsLib.GlobalWorkerOptions.workerSrc=PJ+'build/pdf.worker.min.js';await ld(PJ+'web/pdf_viewer.js')}
 if(!rsc._g){rsc._g=1;rsc.addEventListener('scroll',gate,true)}EB=new pdfjsViewer.EventBus();const LK=new pdfjsViewer.PDFLinkService({eventBus:EB}),FC=new pdfjsViewer.PDFFindController({eventBus:EB,linkService:LK});
-PV=new pdfjsViewer.PDFViewer({container:rsc,viewer:rpg,eventBus:EB,linkService:LK,findController:FC,textLayerMode:1,useOnlyCssZoom:true,maxCanvasPixels:3e6,removePageBorders:true});LK.setViewer(PV);
+PV=new pdfjsViewer.PDFViewer({container:rsc,viewer:rpg,eventBus:EB,linkService:LK,findController:FC,textLayerMode:1,useOnlyCssZoom:true,maxCanvasPixels:1.2e6,removePageBorders:true});LK.setViewer(PV);
 EB.on('pagesinit',()=>{N=PV.pagesCount;PV.currentScaleValue='page-width';base=PV.currentScale;sl.max=N;gi.max=N;ldt.hidden=true;const p=Math.min(N,sp);if(p>1)PV.currentPageNumber=p;setP(p);zlab();rdy=1});
 EB.on('pagechanging',e=>{setP(e.pageNumber);if(rdy)LS.s('pg'+b.id,e.pageNumber)});EB.on('scalechanging',zlab);
 const fcnt=e=>{const m=e.matchesCount;if(m)$('#fc').textContent=m.total?m.current+'/'+m.total:'0'};EB.on('updatefindmatchescount',fcnt);EB.on('updatefindcontrolstate',fcnt);
 const task=pdfjsLib.getDocument({url:b.u,disableAutoFetch:true,rangeChunkSize:1<<20});task.onProgress=p=>{if(!ldt.hidden&&p.total)ldt.textContent='⏳ Загрузка… '+Math.round(p.loaded/p.total*100)+'%'};PDF=await task.promise;PV.setDocument(PDF);LK.setDocument(PDF,null)}
 catch(e){ldt.hidden=false;ldt.textContent='😕 Не удалось открыть учебник'}}
-function closeBook(){rd.hidden=true;tg?.BackButton?.offClick(closeBook);tg?.BackButton?.hide();try{PV&&PV.setDocument(null)}catch(e){}try{PDF&&PDF.destroy()}catch(e){}PV=null;PDF=null;EB=null;bk=null;N=0;rpg.innerHTML=''}
+function closeBook(){rd.hidden=true;document.querySelector('.wrap').style.visibility='';$('#nav').style.visibility='';tg?.BackButton?.offClick(closeBook);tg?.BackButton?.hide();try{PV&&PV.setDocument(null)}catch(e){}try{PDF&&PDF.destroy()}catch(e){}PV=null;PDF=null;EB=null;bk=null;N=0;rpg.innerHTML=''}
 $('#rx').onclick=closeBook;sl.oninput=()=>{if(PV)PV.currentPageNumber=+sl.value};gi.onfocus=()=>gi.select();gi.onchange=()=>{if(PV)PV.currentPageNumber=cl(parseInt(gi.value)||cp,1,N);gi.blur()};
 $('#zp').onclick=()=>zoomBy(1.25);$('#zm').onclick=()=>zoomBy(.8);$('#zl').onclick=()=>{if(PV)PV.currentScaleValue='page-width'};
 $('#sb').onclick=()=>{const f=$('#fb');f.hidden=!f.hidden;rd.classList.remove('hb');if(!f.hidden)$('#fq').focus();else if(EB)EB.dispatch('findbarclose',{source:window})};
