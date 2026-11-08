@@ -195,7 +195,7 @@ html[data-th=dark] #rd .rb,html[data-th=dark] #rd .rf,html[data-th=dark] #rd .fb
 .hw-confirm{margin-top:10px;border:1px solid rgba(239,79,95,.24);border-radius:14px;padding:9px 11px;background:var(--card)}
 .hw-confirm p{margin:0 0 7px;color:var(--mut);font-size:12px}
 </style></head><body>
-<div class="wrap"><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
+<div class="wrap"><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1><p id="date"></p></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
 <nav id="nav"><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav><div id="rd" hidden><div id="sc"><div id="pgs" class="pdfViewer"></div></div><div class="rb"><button id="rx">‹</button><div class="rt" id="rt"></div><div class="rc"><input id="gi" type="number" inputmode="numeric" min="1"><span id="gn"></span></div><button id="sb">🔍</button></div><div class="fb" id="fb" hidden><input id="fq" type="search" placeholder="Поиск по тексту"><span id="fc"></span><button id="fp">↑</button><button id="fn">↓</button></div><div class="ld" id="ldt" hidden></div><div class="rf"><button id="zm">−</button><button class="zl" id="zl">100%</button><button id="zp">+</button><input type="range" id="sl" min="1" value="1"></div></div>
 <dialog class="hw-sheet" id="hw-sheet" aria-labelledby="hw-title"></dialog>
 <script>
@@ -231,6 +231,7 @@ const save=()=>LS.s('cfg',{th:S.th,g:S.g,sg:S.sg});
 const TH=[['light','☀️ Светлая'],['dark','🌙 Тёмная'],['auto','📱 Авто']],GR=[['1','Группа 1'],['2','Группа 2'],['3','Группа 3']],SG=[['1','Подгруппа 1'],['2','Подгруппа 2']];
 function applyTheme(){const d=S.th=='dark'||(S.th=='auto'&&(tg?tg.colorScheme=='dark':matchMedia('(prefers-color-scheme:dark)').matches));document.documentElement.dataset.th=d?'dark':'light';const c=d?'#0a1424':'#e8f3ff';try{tg?.setHeaderColor(c);tg?.setBackgroundColor(c)}catch(e){}}
 applyTheme();
+$('#date').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
 const wkTxt=()=>($('#wk').textContent='🗓 '+(S.wk==='even'?'Чётная':'Нечётная')+' неделя');wkTxt();
 $('#nav').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.t=b.dataset.t;S.bk=0;setTab(b);tg?.HapticFeedback?.selectionChanged();go()};
 const go=()=>{$('#nav').style.display=S.ob?'none':'';document.querySelector('header').style.display=S.ob?'none':'';S.ob?onb():({sch:sched,w:weather,j:journal,p:()=>S.bk?books():profile()})[S.t]()};
