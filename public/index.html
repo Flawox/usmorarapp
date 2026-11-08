@@ -156,22 +156,6 @@ header p::first-letter{text-transform:uppercase}
 #pgs{padding:0}#sc{padding:calc(62px + env(safe-area-inset-top)) 0 calc(66px + env(safe-area-inset-bottom));box-sizing:border-box}
 #rd .rb,#rd .rf,#rd .fb{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(255,255,255,.96)}
 html[data-th=dark] #rd .rb,html[data-th=dark] #rd .rf,html[data-th=dark] #rd .fb{background:rgba(14,26,44,.96)}
-
-.hw-week button:first-child,.hw-week button:last-child{flex:0 0 44px;font-size:18px;line-height:1}
-.hw-week button{color:var(--ac)}
-.hw-admin{margin:0 0 8px}
-.lesson .t.has-homework{flex-wrap:wrap}
-.lesson .t .lesson-homework{flex:0 0 100%;min-width:0;border-top:1px solid var(--ln);padding:8px 0 2px;color:var(--ink)}
-.lesson-homework b{color:var(--ac)}
-.lesson-homework p{white-space:pre-wrap;overflow-wrap:anywhere;margin:3px 0 0}
-.hw-editor{margin-top:10px}
-.hw-editor h2{margin:0 0 12px}
-.hw-editor fieldset{border:0;padding:0;margin:0;min-width:0}
-.hw-editor label{display:block;margin-bottom:10px;color:var(--mut);font-weight:600}
-.hw-editor select,.hw-editor textarea,.hw-editor input{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid var(--ln);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px}
-.hw-editor textarea{resize:vertical}
-.hw-editor button:disabled{opacity:.55}
-.hw-status:empty{display:none}
 </style></head><body>
 <div class="wrap"><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1><p id="date"></p></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
 <nav id="nav"><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav><div id="rd" hidden><div id="sc"><div id="pgs" class="pdfViewer"></div></div><div class="rb"><button id="rx">‹</button><div class="rt" id="rt"></div><div class="rc"><input id="gi" type="number" inputmode="numeric" min="1"><span id="gn"></span></div><button id="sb">🔍</button></div><div class="fb" id="fb" hidden><input id="fq" type="search" placeholder="Поиск по тексту"><span id="fc"></span><button id="fp">↑</button><button id="fn">↓</button></div><div class="ld" id="ldt" hidden></div><div class="rf"><button id="zm">−</button><button class="zl" id="zl">100%</button><button id="zp">+</button><input type="range" id="sl" min="1" value="1"></div></div>
@@ -181,264 +165,32 @@ const $=s=>document.querySelector(s),v=$('#v');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={g:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},s:(k,x)=>{try{localStorage.setItem(k,JSON.stringify(x))}catch{}}};
 const DAYS=['Понедельник','Вторник','Среда','Четверг','Пятница'],SH=['ПН','ВТ','СР','ЧТ','ПТ'];
-const calendarToday=()=>new Intl.DateTimeFormat('sv-SE',{
-  timeZone:'Europe/Chisinau',year:'numeric',month:'2-digit',day:'2-digit'
-}).format(new Date());
-function shiftDate(date,days){
-  const utc=new Date(date+'T00:00:00Z');
-  utc.setUTCDate(utc.getUTCDate()+days);
-  return utc.toISOString().slice(0,10);
-}
-function weekMonday(date){
-  const weekday=new Date(date+'T00:00:00Z').getUTCDay();
-  return shiftDate(date,-((weekday+6)%7));
-}
-function nextScheduleMonday(date){
-  const weekday=new Date(date+'T00:00:00Z').getUTCDay();
-  const monday=weekMonday(date);
-  return weekday===0||weekday===6?shiftDate(monday,7):monday;
-}
-function weekKind(date){
-  const elapsed=Date.parse(date)-Date.parse('2026-09-21');
-  return Math.floor(Math.max(0,elapsed)/(7*864e5))%2?'even':'odd';
-}
+const dow=(new Date().getDay()+6)%7;
+function autoWeek(){let t=new Date();t=new Date(t.getFullYear(),t.getMonth(),t.getDate());if(dow>=5)t.setDate(t.getDate()+7-dow);const s=new Date(2026,8,21);if(t<s)t=s;return Math.floor(Math.round((t-s)/864e5)/7)%2?'even':'odd'}
 const cfg=LS.g('cfg',null);
-const S={t:'sch',th:cfg?.th||'auto',g:cfg?.g||'1',sg:cfg?.sg||'1',ob:!cfg,week:nextScheduleMonday(calendarToday()),sub:'att',J:null,data:null};
+const S={t:'sch',th:cfg?.th||'auto',g:cfg?.g||'1',sg:cfg?.sg||'1',ob:!cfg,wk:autoWeek(),sub:'att',J:null,data:null};
 const save=()=>LS.s('cfg',{th:S.th,g:S.g,sg:S.sg});
 const TH=[['light','☀️ Светлая'],['dark','🌙 Тёмная'],['auto','📱 Авто']],GR=[['1','Группа 1'],['2','Группа 2'],['3','Группа 3']],SG=[['1','Подгруппа 1'],['2','Подгруппа 2']];
 function applyTheme(){const d=S.th=='dark'||(S.th=='auto'&&(tg?tg.colorScheme=='dark':matchMedia('(prefers-color-scheme:dark)').matches));document.documentElement.dataset.th=d?'dark':'light';const c=d?'#0a1424':'#e8f3ff';try{tg?.setHeaderColor(c);tg?.setBackgroundColor(c)}catch(e){}}
 applyTheme();
 $('#date').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
-const wkTxt=()=>($('#wk').textContent='🗓 '+(weekKind(S.week)==='even'?'Чётная':'Нечётная')+' неделя');wkTxt();
+const wkTxt=()=>($('#wk').textContent='🗓 '+(S.wk=='even'?'Чётная':'Нечётная')+' неделя');wkTxt();
 $('#nav').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.t=b.dataset.t;S.bk=0;setTab(b);tg?.HapticFeedback?.selectionChanged();go()};
 const go=()=>{$('#nav').style.display=S.ob?'none':'';document.querySelector('header').style.display=S.ob?'none':'';S.ob?onb():({sch:sched,w:weather,j:journal,p:()=>S.bk?books():profile()})[S.t]()};
 const chips=(arr,cur,cb,pre='')=>`<div class="row">${arr.map(([k,l])=>`<button class="chip ${k==cur?'on':''}" data-k="${k}" data-c="${cb}">${pre}${l}</button>`).join('')}</div>`;
 v.onclick=e=>{const b=e.target.closest('[data-c]');if(!b)return;const k=b.dataset.k,c=b.dataset.c;tg?.HapticFeedback?.selectionChanged();
-if(c=='g')S.g=k;if(c=='sg')S.sg=k;if(c=='th'){S.th=k;applyTheme()}if(c==='week'){S.week=k==='today'?nextScheduleMonday(calendarToday()):shiftDate(S.week,Number(k));wkTxt()}if(c=='sub')S.sub=k;if(!S.ob&&'g sg th'.split(' ').includes(c))save();go()};
-let scheduleRender=0;
-async function sched(){
-  const render=++scheduleRender;
-  const active=()=>render===scheduleRender&&S.t==='sch'&&!S.ob;
-  if(!S.data){
-    v.innerHTML='<div class="sk"></div>'.repeat(4);
-    try{
-      const response=await fetch('schedule.json');
-      if(!response.ok)throw new Error('schedule');
-      S.data=await response.json();
-    }catch{
-      if(active())v.innerHTML='<div class="card empty">Не удалось загрузить расписание</div>';
-      return;
-    }
-  }
-  if(!active())return;
-  const D=S.data,sd=D.schedule[S.g]?.[S.sg]||{},today=calendarToday();
-  const current=nextScheduleMonday(today), kind=weekKind(S.week);
-  const [hh,mm]=new Date().toLocaleTimeString('en-GB',{
-    timeZone:'Europe/Chisinau',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
-  }).split(':').map(Number);
-  const minutes=hh*60+mm;
-  wkTxt();
-  const shortDate=date=>date.slice(8)+'.'+date.slice(5,7);
-  let h=`<div class="lbl">Группа ${S.g} · Подгруппа ${+S.g+ +S.sg-1}</div>
-    <div class="seg hw-week">
-      <button type="button" data-c="week" data-k="-7" aria-label="Предыдущая неделя">‹</button>
-      <button type="button" data-c="week" data-k="today" aria-label="Вернуться к текущему расписанию">${shortDate(S.week)} – ${shortDate(shiftDate(S.week,4))} · ${S.week.slice(0,4)}</button>
-      <button type="button" data-c="week" data-k="7" aria-label="Следующая неделя">›</button>
-    </div>
-    <button class="btn alt hw-admin" type="button" id="hw-admin" hidden>Управление домашними заданиями</button>`;
-  DAYS.forEach((dn,di)=>{
-    const date=shiftDate(S.week,di),isToday=date===today;
-    const ds=sd[dn]||{},L={};
-    for(const n in ds){
-      const x=ds[n].all||ds[n][kind];
-      if(x)L[n]=x;
-    }
-    const mx=Math.max(0,...Object.keys(L).map(Number));
-    h+=`<div class="dh ${isToday?'td':''}" id="d${di}">${dn} · ${shortDate(date)}${isToday?' · сегодня':''}</div>`;
-    if(!mx)h+='<div class="card gap">🎉 Пар нет</div>';
-    for(let n=1;n<=mx;n++){
-      const tm=D.times[n]||'',l=L[n];
-      if(!l){h+=`<div class="card gap">🪟 Окно · ${tm}</div>`;continue}
-      const [a,b]=tm.split('-').map(x=>{const [H,M]=x.split(':');return H*60+ +M});
-      const cur=isToday&&minutes>=a&&minutes<b,c=l.type[0]=='С'?'s':l.type[0]=='Л'&&l.type.length>6?'l':'';
-      h+=`<div class="card lesson ${cur?'now':''}" style="animation-delay:${n*40}ms" data-lesson-date="${date}" data-period="${n}" data-subject="${esc(l.subject)}" data-lesson-type="${esc(l.type)}"><div class="n"><b>${n}</b><small>${tm.replace('-','<br>')}</small></div><div class="t"><div class="tx"><span class="tag ${c}">${esc(l.type)}${cur?' · сейчас':''}</span><h3>${esc(l.subject)}</h3><div>👨‍🏫 ${esc(l.teacher)}</div></div><div class="rm"><small>каб.</small>${esc(l.room)}</div></div></div>`;
-    }
-  });
-  v.innerHTML=h;
-  const admin=$('#hw-admin');
-  admin.onclick=openHomeworkEditor;
-  loadScheduleHomework(admin,S.g,S.sg,S.week);
-  if(!S.sc){
-    S.sc=1;
-    if(S.week===current&&weekMonday(today)===S.week){
-      const day=(new Date(today+'T00:00:00Z').getUTCDay()+6)%7;
-      if(day>0&&day<5)document.getElementById('d'+day)?.scrollIntoView();
-    }
-  }
-}
-function homeworkRequest(action, fields){
-  return fetch('/api/homework',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action,initData:tg?.initData||'',...fields})
-  }).then(async response=>{
-    const data=await response.json();
-    if(!response.ok){
-      const error=new Error(data.error||'Домашние задания сейчас недоступны');
-      error.isAdmin=data.isAdmin;
-      throw error;
-    }
-    return data;
-  });
-}
-
-async function loadScheduleHomework(root, group, subgroup, date){
-  if(!tg?.initData)return;
-  let data;
-  try{
-    data=await homeworkRequest('list',{group,subgroup,date});
-  }catch(error){
-    data={isAdmin:error.isAdmin};
-  }
-  if(!root.isConnected||S.t!=='sch')return;
-  if(data.isAdmin)root.hidden=false;
-  const key=(...parts)=>JSON.stringify(parts);
-  const assignments=new Map((data.items||[]).map(row=>[
-    key(row.lesson_date,row.period,row.subject,row.lesson_type),row.body
-  ]));
-  for(const card of v.querySelectorAll('[data-lesson-date]')){
-    const {lessonDate,period,subject,lessonType}=card.dataset;
-    const body=assignments.get(key(lessonDate,Number(period),subject,lessonType));
-    if(!body)continue;
-    const block=document.createElement('div');
-    block.className='lesson-homework';
-    const title=document.createElement('b');
-    title.textContent='Домашнее задание';
-    const text=document.createElement('p');
-    text.textContent=body;
-    block.append(title,text);
-    const content=card.querySelector('.t');
-    content.classList.add('has-homework');
-    content.append(block);
-  }
-}
-
-function openHomeworkEditor(){
-  const today=calendarToday();
-  const initialDate=weekMonday(today)===S.week?today:S.week;
-  v.innerHTML=`<button type="button" class="chip" id="hw-back">‹ Расписание</button>
-    <form class="card hw-editor">
-      <h2>Домашние задания</h2>
-      <fieldset>
-        <label>Группа<select name="group">${GR.map(([id,name])=>`<option value="${id}">${name}</option>`).join('')}</select></label>
-        <label>Для кого<select name="subgroup"></select></label>
-        <label>Дата пары<input type="date" name="date" min="2000-01-01" max="2100-12-31" required></label>
-        <label>Пара<select name="period" required></select></label>
-        <label>Текст задания<textarea name="body" maxlength="3000" rows="5" required placeholder="Например, § 12 и упражнения 3–5"></textarea></label>
-        <button class="btn" type="submit">Сохранить</button>
-        <button class="btn alt" type="button" id="hw-delete" hidden>Удалить задание</button>
-      </fieldset>
-      <p class="hint hw-status" role="status"></p>
-    </form>`;
-  const form=v.querySelector('.hw-editor');
-  const {group,subgroup,date,period,body}=form.elements;
-  const saveButton=form.querySelector('[type=submit]'), deleteButton=$('#hw-delete');
-  const fields=form.querySelector('fieldset'), status=form.querySelector('.hw-status');
-  let lessons=[], revision=0;
-  group.value=S.g;
-  date.value=initialDate;
-  $('#hw-back').onclick=sched;
-
-  function updateAudience(){
-    const previous=subgroup.value||'all';
-    subgroup.innerHTML=`<option value="all">Вся группа</option>${['1','2'].map(id=>
-      `<option value="${id}">Подгруппа ${Number(group.value)+Number(id)-1}</option>`).join('')}`;
-    subgroup.value=previous;
-  }
-
-  function updateLessons(){
-    lessons=[];
-    if(date.value&&date.validity.valid){
-      const weekday=new Date(date.value+'T00:00:00Z').getUTCDay();
-      const day=DAYS[weekday-1], week=weekKind(date.value);
-      const first=subgroup.value==='all'?'1':subgroup.value;
-      const table=S.data.schedule[group.value];
-      for(const [slot,options] of Object.entries(table[first]?.[day]||{})){
-        const lesson=options.all||options[week];
-        if(!lesson)continue;
-        if(subgroup.value==='all'){
-          const other=table['2']?.[day]?.[slot];
-          const second=other?.all||other?.[week];
-          if(second?.subject!==lesson.subject||second?.type!==lesson.type)continue;
-        }
-        lessons.push({period:Number(slot),subject:lesson.subject,lessonType:lesson.type});
-      }
-    }
-    period.innerHTML=lessons.length
-      ? lessons.map((lesson,i)=>`<option value="${i}">${lesson.period}. ${esc(lesson.subject)} · ${esc(lesson.lessonType)}</option>`).join('')
-      : '<option value="">Нет доступных пар</option>';
-    period.disabled=!lessons.length;
-    loadSelection();
-  }
-
-  function selection(){
-    return {group:group.value,subgroup:subgroup.value,date:date.value,...lessons[Number(period.value)]};
-  }
-
-  async function loadSelection(){
-    const request=++revision;
-    saveButton.disabled=body.disabled=true;
-    deleteButton.hidden=true;
-    body.value='';
-    if(!lessons.length){
-      status.textContent=subgroup.value==='all'
-        ? 'Общих пар на эту дату нет. Выберите подгруппу или другую дату.'
-        : 'На эту дату пар нет. Выберите другую дату.';
-      return;
-    }
-    status.textContent='Загружаем задание…';
-    try{
-      const {items}=await homeworkRequest('read',selection());
-      if(!form.isConnected||request!==revision)return;
-      const different=subgroup.value==='all'&&items.length>0&&
-        (items.length!==2||items[0].body!==items[1].body);
-      body.value=different?'':items[0]?.body||'';
-      status.textContent=different
-        ? 'У подгрупп разные задания. Сохранение или удаление применится к обеим.'
-        : '';
-      deleteButton.hidden=!items.length;
-      saveButton.disabled=body.disabled=false;
-    }catch(error){
-      if(form.isConnected&&request===revision){
-        status.textContent=error instanceof SyntaxError?'Не удалось загрузить задание':error.message;
-      }
-    }
-  }
-
-  async function changeAssignment(action){
-    if(action==='delete'&&!window.confirm('Удалить задание для выбранной группы или подгруппы?'))return;
-    fields.disabled=true;
-    status.textContent=action==='save'?'Сохраняем…':'Удаляем…';
-    try{
-      await homeworkRequest(action,{...selection(),body:body.value});
-      if(action==='delete')body.value='';
-      deleteButton.hidden=action==='delete';
-      status.textContent=action==='save'?'Задание сохранено':'Задание удалено';
-    }catch(error){
-      status.textContent=error instanceof SyntaxError?'Не удалось изменить задание':error.message;
-    }finally{
-      fields.disabled=false;
-    }
-  }
-
-  group.onchange=()=>{updateAudience();updateLessons()};
-  subgroup.onchange=date.onchange=updateLessons;
-  period.onchange=loadSelection;
-  form.onsubmit=event=>{event.preventDefault();if(!saveButton.disabled)changeAssignment('save')};
-  deleteButton.onclick=()=>changeAssignment('delete');
-  updateAudience();
-  updateLessons();
-}
+if(c=='g')S.g=k;if(c=='sg')S.sg=k;if(c=='th'){S.th=k;applyTheme()}if(c=='w'){S.wk=k;wkTxt()}if(c=='sub')S.sub=k;if(!S.ob&&'g sg th'.split(' ').includes(c))save();go()};
+async function sched(){if(!S.data){v.innerHTML='<div class="sk"></div>'.repeat(4);try{S.data=await (await fetch('schedule.json')).json()}catch{v.innerHTML='<div class="card empty">Не удалось загрузить расписание</div>';return}}
+const D=S.data,sd=D.schedule[S.g]?.[S.sg]||{},now=new Date(),mm=now.getHours()*60+now.getMinutes();
+let h=`<div class="lbl">Группа ${S.g} · Подгруппа ${+S.g+ +S.sg-1}</div><div class="seg">${[['odd','Нечётная'],['even','Чётная']].map(([k,l])=>`<button data-c="w" data-k="${k}" class="${S.wk==k?'on':''}">${l}</button>`).join('')}</div>`;
+DAYS.forEach((dn,di)=>{const ds=sd[dn]||{},L={};for(const n in ds){const x=ds[n].all||ds[n][S.wk];if(x)L[n]=x}
+const mx=Math.max(0,...Object.keys(L).map(Number));h+=`<div class="dh ${di==dow?'td':''}" id="d${di}">${dn}${di==dow?' · сегодня':''}</div>`;
+if(!mx)h+='<div class="card gap">🎉 Пар нет</div>';
+for(let n=1;n<=mx;n++){const tm=D.times[n]||'',l=L[n],[a,b]=tm.split('-').map(x=>{const[H,M]=x.split(':');return H*60+ +M});
+if(!l){h+=`<div class="card gap">🪟 Окно · ${tm}</div>`;continue}
+const cur=di==dow&&mm>=a&&mm<b,c=l.type[0]=='С'?'s':l.type[0]=='Л'&&l.type.length>6?'l':'';
+h+=`<div class="card lesson ${cur?'now':''}" style="animation-delay:${n*40}ms"><div class="n"><b>${n}</b><small>${tm.replace('-','<br>')}</small></div><div class="t"><div class="tx"><span class="tag ${c}">${esc(l.type)}${cur?' · сейчас':''}</span><h3>${esc(l.subject)}</h3><div>👨‍🏫 ${esc(l.teacher)}</div></div><div class="rm"><small>каб.</small>${esc(l.room)}</div></div></div>`}});
+v.innerHTML=h;if(!S.sc){S.sc=1;if(dow>0&&dow<5)document.getElementById('d'+dow)?.scrollIntoView()}}
 function setTab(b){document.querySelectorAll('#nav button').forEach((x,i)=>{x.classList.toggle('on',x==b);if(x==b)$('#ind').style.transform=`translateX(${i*100}%)`})}
 const num=m=>parseFloat(String(m).replace(',','.')),gc=m=>{const n=num(m);return isNaN(n)?'':n>=8?' g8':n>=5?' g5':' g1'};
 const sqr=l=>`<div class="sqw"><div class="sq ${l.s=='a'?'a':l.s=='g'?'g'+gc(l.m):'p'}">${l.s=='a'?'❌':l.s=='p'?'✅':esc(l.m)}</div><small>${esc(l.d)}</small></div>`;
