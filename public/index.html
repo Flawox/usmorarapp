@@ -238,10 +238,21 @@ const go=()=>{$('#nav').style.display=S.ob?'none':'';document.querySelector('hea
 const chips=(arr,cur,cb,pre='')=>`<div class="row">${arr.map(([k,l])=>`<button class="chip ${k==cur?'on':''}" data-k="${k}" data-c="${cb}">${pre}${l}</button>`).join('')}</div>`;
 v.onclick=e=>{const b=e.target.closest('[data-c]');if(!b)return;const k=b.dataset.k,c=b.dataset.c;tg?.HapticFeedback?.selectionChanged();
 if(c=='g'){S.g=k;S.hwScope=null}if(c=='sg'){S.sg=k;S.hwScope=null}if(c=='th'){S.th=k;applyTheme()}if(c==='week'){S.wk=k;wkTxt()}if(c=='sub')S.sub=k;if(!S.ob&&'g sg th'.split(' ').includes(c))save();go()};
-let scheduleRender=0, renderedMonday='', rolloverTimer;
+let scheduleRender=0, renderedMonday='', rolloverTimer, homeworkView;
+const homeworkCache=new Map();
+
 async function sched(){
   const render=++scheduleRender;
   const active=()=>render===scheduleRender&&S.t==='sch'&&!S.ob;
+  const group=S.hwScope?.group||S.g, subgroup=S.hwScope?.subgroup||S.sg;
+  const today=calendarToday(), monday=weekMonday(today);
+  alignHomeworkWeek(monday);
+  const kind=S.wk;
+  const week=weekKind(monday)===kind?monday:shiftDate(monday,7);
+  renderedMonday=monday;
+  const scope={group,subgroup,date:week};
+  const entry=tg?.initData?fetchHomeworkList(scope):null;
+  const pending=entry?.pending;
   if(!S.data){
     v.innerHTML='<div class="sk"></div>'.repeat(4);
     try{
@@ -254,13 +265,8 @@ async function sched(){
     }
   }
   if(!active())return;
-  const group=S.hwScope?.group||S.g, subgroup=S.hwScope?.subgroup||S.sg;
-  const D=S.data,sd=D.schedule[group]?.[subgroup]||{},today=calendarToday();
-  const monday=weekMonday(today);
-  alignHomeworkWeek(monday);
-  const kind=S.wk;
-  const week=weekKind(monday)===kind?monday:shiftDate(monday,7);
-  renderedMonday=monday;
+  if(weekMonday(calendarToday())!==monday){sched();return}
+  const D=S.data,sd=D.schedule[group]?.[subgroup]||{};
   const [hh,mm]=new Date().toLocaleTimeString('en-GB',{
     timeZone:'Europe/Chisinau',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
   }).split(':').map(Number);
@@ -290,9 +296,11 @@ async function sched(){
     }
   });
   v.innerHTML=h;
-  const tools=$('#hw-tools');
-  if(S.hwAdmin)renderHomeworkTools(tools,group,subgroup);
-  loadScheduleHomework(tools,group,subgroup,week);
+  const view={root:$('#hw-tools'),scope,monday};
+  homeworkView=view;
+  if(S.hwAdmin)renderHomeworkTools(view.root,group,subgroup);
+  if(entry?.data)renderScheduleHomework(view,entry.data);
+  if(pending)showHomeworkWhenReady(view,pending);
   if(!tg?.initData&&!S.sc){
     S.sc=1;
     scrollToToday(week,today);
@@ -307,6 +315,7 @@ function scrollToToday(week,today){
 
 function alignHomeworkWeek(monday){
   if(!renderedMonday||renderedMonday===monday)return false;
+  homeworkCache.clear();
   const sheet=$('#hw-sheet');
   if(sheet.open&&sheet.dataset.lessonDate<monday)sheet.close();
   if(S.wk===weekKind(renderedMonday))S.wk=weekKind(monday);
@@ -332,6 +341,7 @@ function homeworkRequest(action, fields){
     if(!response.ok){
       const error=new Error(data.error||'Домашние задания сейчас недоступны');
       error.isAdmin=data.isAdmin;
+      error.status=response.status;
       throw error;
     }
     return data;
@@ -357,16 +367,95 @@ function renderHomeworkTools(root,group,subgroup){
   };
 }
 
-async function loadScheduleHomework(root,group,subgroup,week){
-  if(!tg?.initData)return;
-  let data;
-  try{
-    data=await homeworkRequest('list',{group,subgroup,date:week});
-  }catch(error){
-    data={isAdmin:error.isAdmin??S.hwAdmin};
+const scopeKey=({group,subgroup,date})=>JSON.stringify([group,subgroup,date]);
+const lessonKey=(date,period,subject,type)=>JSON.stringify([date,Number(period),subject,type]);
+const rowKey=row=>lessonKey(row.lesson_date,row.period,row.subject,row.lesson_type);
+
+function fetchHomeworkList(scope){
+  const key=scopeKey(scope);
+  let entry=homeworkCache.get(key);
+  if(!entry){
+    entry={data:null,pending:null};
+    homeworkCache.set(key,entry);
   }
-  if(!root.isConnected||S.t!=='sch')return;
-  if(weekMonday(calendarToday())!==renderedMonday){refreshHomeworkWeek();return}
+  if(entry.pending)return entry;
+  const pending=homeworkRequest('list',scope).then(data=>{
+    if(entry.pending!==pending)return;
+    entry.data=data;
+    return data;
+  },error=>{
+    if(entry.pending!==pending)return;
+    if(error.status===401||error.status===403){
+      homeworkCache.clear();
+      entry.data=null;
+      return {items:[],isAdmin:false};
+    }
+    return {...entry.data,isAdmin:error.isAdmin??S.hwAdmin};
+  }).finally(()=>{
+    if(entry.pending===pending)entry.pending=null;
+  });
+  entry.pending=pending;
+  return entry;
+}
+
+function showHomeworkWhenReady(view,pending){
+  pending.then(data=>{
+    if(data)renderScheduleHomework(view,data);
+  });
+}
+
+function homeworkViewActive(view){
+  return view===homeworkView&&view.root.isConnected&&S.t==='sch'&&!S.ob;
+}
+
+function cardLesson(card,scope){
+  const {lessonDate:date,period,subject,lessonType}=card.dataset;
+  return {...scope,date,period:Number(period),subject,lessonType};
+}
+
+function updateHomeworkCard(card,lesson,body){
+  const content=card.querySelector('.t');
+  let block=content.querySelector('.lesson-homework');
+  if(body){
+    if(!block){
+      block=document.createElement('div');
+      block.className='lesson-homework';
+      const title=document.createElement('b');
+      title.textContent='Домашнее задание';
+      block.append(title,document.createElement('p'));
+      content.append(block);
+      content.classList.add('has-homework');
+    }
+    const text=block.querySelector('p');
+    if(text.textContent!==body)text.textContent=body;
+  }else if(block){
+    block.remove();
+    content.classList.remove('has-homework');
+  }
+  let button=card.querySelector('.hw-card-button');
+  if(S.hwAdmin){
+    if(!button){
+      button=document.createElement('button');
+      button.className='hw-card-button';
+      button.type='button';
+      button.onclick=()=>openHomeworkEditor(lesson);
+      card.classList.add('hw-editable');
+      card.append(button);
+    }
+    button.dataset.icon=body?'✎':'+';
+    button.setAttribute('aria-label',`${body?'Изменить':'Добавить'} ДЗ · ${lesson.subject}, пара ${lesson.period}`);
+  }else if(button){
+    button.remove();
+    card.classList.remove('hw-editable');
+  }
+}
+
+function renderScheduleHomework(view,data){
+  if(!homeworkViewActive(view)||view.data===data)return;
+  if(weekMonday(calendarToday())!==view.monday){refreshHomeworkWeek();return}
+  view.data=data;
+  const {root,scope}=view;
+  const {group,subgroup,date:week}=scope;
   S.hwAdmin=data.isAdmin;
   if(S.hwAdmin&&root.hidden)renderHomeworkTools(root,group,subgroup);
   if(!S.hwAdmin){
@@ -378,39 +467,47 @@ async function loadScheduleHomework(root,group,subgroup,week){
     const delay=Date.parse(data.rolloverAt)-Date.now();
     rolloverTimer=setTimeout(refreshHomeworkWeek,Math.max(0,delay)+100);
   }
-  const key=(...parts)=>JSON.stringify(parts);
-  const assignments=new Map((data.items||[]).map(row=>[
-    key(row.lesson_date,row.period,row.subject,row.lesson_type),row.body
-  ]));
+  const assignments=new Map((data.items||[]).map(row=>[rowKey(row),row.body]));
   for(const card of v.querySelectorAll('[data-lesson-date]')){
-    const {lessonDate:date,period,subject,lessonType}=card.dataset;
-    const body=assignments.get(key(date,Number(period),subject,lessonType));
-    if(body){
-      const block=document.createElement('div');
-      block.className='lesson-homework';
-      const title=document.createElement('b');
-      title.textContent='Домашнее задание';
-      const text=document.createElement('p');
-      text.textContent=body;
-      block.append(title,text);
-      const content=card.querySelector('.t');
-      content.classList.add('has-homework');
-      content.append(block);
-    }
-    if(S.hwAdmin){
-      const button=document.createElement('button');
-      button.className='hw-card-button';
-      button.type='button';
-      button.dataset.icon=body?'✎':'+';
-      button.setAttribute('aria-label',`${body?'Изменить':'Добавить'} ДЗ · ${subject}, пара ${period}`);
-      button.onclick=()=>openHomeworkEditor({group,subgroup,date,period:Number(period),subject,lessonType});
-      card.classList.add('hw-editable');
-      card.append(button);
-    }
+    const lesson=cardLesson(card,scope);
+    const key=lessonKey(lesson.date,lesson.period,lesson.subject,lesson.lessonType);
+    updateHomeworkCard(card,lesson,assignments.get(key));
   }
   if(!S.sc){
     S.sc=1;
     if(!S.hwAdmin)scrollToToday(week,calendarToday());
+  }
+}
+
+function applyHomeworkChange(lesson,body){
+  const {group,subgroup,date,period,subject,lessonType}=lesson;
+  const week=weekMonday(date);
+  if(week<weekMonday(calendarToday())){refreshHomeworkWeek();return}
+  const key=lessonKey(date,period,subject,lessonType);
+  const view=homeworkView;
+  for(const target of subgroup==='all'?['1','2']:[subgroup]){
+    const scope={group,subgroup:target,date:week};
+    const scopeId=scopeKey(scope);
+    const visible=view&&homeworkViewActive(view)&&scopeKey(view.scope)===scopeId;
+    const entry=homeworkCache.get(scopeId);
+    if(entry){
+      // A list requested before the write can contain the old value.
+      entry.pending=null;
+      if(visible&&!entry.data)entry.data={items:[],isAdmin:S.hwAdmin};
+      if(entry.data){
+        entry.data.items=entry.data.items.filter(row=>rowKey(row)!==key);
+        if(body)entry.data.items.push({
+          lesson_date:date,period,subject,lesson_type:lessonType,subgroup_no:Number(target),body
+        });
+      }
+    }
+    if(!visible)continue;
+    for(const card of v.querySelectorAll('[data-lesson-date]')){
+      const current=cardLesson(card,view.scope);
+      if(lessonKey(current.date,current.period,current.subject,current.lessonType)!==key)continue;
+      updateHomeworkCard(card,current,body);
+      break;
+    }
   }
 }
 
@@ -490,9 +587,10 @@ function openHomeworkEditor(lesson){
     confirm.hidden=true;
     status.textContent=action==='save'?'Сохраняем…':'Удаляем…';
     try{
-      await homeworkRequest(action,{...selection(),body:body.value});
+      const target=selection(), text=body.value.trim();
+      await homeworkRequest(action,{...target,body:text});
       if(active())sheet.close();
-      if(S.t==='sch')sched();
+      applyHomeworkChange(target,action==='save'?text:'');
     }catch(error){
       if(active())status.textContent=error instanceof SyntaxError?'Не удалось изменить задание':error.message;
     }finally{
