@@ -1,9 +1,10 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time as datetime_time, timedelta
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 import hashlib
 import hmac
 import json
@@ -14,6 +15,7 @@ import time
 
 DAYS = ("Понедельник", "Вторник", "Среда", "Четверг", "Пятница")
 ODD_WEEK = date(2026, 9, 21)
+LOCAL_ZONE = ZoneInfo("Europe/Chisinau")
 SCHEDULE_PATH = Path(__file__).resolve().parent.parent / "public" / "schedule.json"
 SUBGROUPS = ("1", "2")
 FIELDS = "lesson_date,period,subject,lesson_type,subgroup_no,body"
@@ -63,7 +65,7 @@ def lesson_for(group, subgroup, day, period):
         return None
     slots = schedule()[group][subgroup].get(DAYS[day.weekday()], {})
     slot = slots.get(str(period), {})
-    week = "even" if max(0, (day - ODD_WEEK).days) // 7 % 2 else "odd"
+    week = "even" if (day - ODD_WEEK).days // 7 % 2 else "odd"
     return slot.get("all") or slot.get(week)
 
 
@@ -98,6 +100,11 @@ def supabase(method, filters=None, rows=None):
         return json.load(response) if method == "GET" else None
 
 
+def current_monday():
+    today = datetime.now(LOCAL_ZONE).date()
+    return today - timedelta(days=today.weekday())
+
+
 def handle_homework(data, is_admin):
     action = data.get("action")
     if action not in ("list", "read", "save", "delete"):
@@ -111,6 +118,11 @@ def handle_homework(data, is_admin):
     if subgroup not in SUBGROUPS and not (action != "list" and subgroup == "all"):
         raise ApiError(400, "Выберите подгруппу")
     day = read_date(data.get("date"))
+    monday = current_monday()
+    next_monday = monday + timedelta(days=7)
+    lesson_week = day - timedelta(days=day.weekday())
+    if lesson_week not in (monday, next_monday):
+        raise ApiError(409, "Учебная неделя сменилась. Обновите расписание.")
     filters = {"group_no": f"eq.{group}", "select": FIELDS}
 
     if action == "list":
@@ -118,7 +130,8 @@ def handle_homework(data, is_admin):
             raise ApiError(400, "Укажите понедельник нужной недели")
         filters.update(subgroup_no=f"eq.{subgroup}", lesson_date=f"gte.{day}")
         rows = supabase("GET", [*filters.items(), ("lesson_date", f"lt.{day + timedelta(days=7)}")])
-        return {"items": rows}
+        rollover = datetime.combine(next_monday, datetime_time.min, LOCAL_ZONE)
+        return {"items": rows, "rolloverAt": rollover.isoformat()}
 
     period = data.get("period")
     if type(period) is not int or period <= 0:
