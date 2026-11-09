@@ -2,8 +2,9 @@ from datetime import date, datetime, time as datetime_time, timedelta
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode
+from urllib.parse import parse_qsl, urlsplit
 from urllib.request import Request, urlopen
+from uuid import UUID
 from zoneinfo import ZoneInfo
 import hashlib
 import hmac
@@ -18,7 +19,6 @@ ODD_WEEK = date(2026, 9, 21)
 LOCAL_ZONE = ZoneInfo("Europe/Chisinau")
 SCHEDULE_PATH = Path(__file__).resolve().parent.parent / "public" / "schedule.json"
 SUBGROUPS = ("1", "2")
-FIELDS = "lesson_date,period,subject,lesson_type,subgroup_no,body"
 
 
 class ApiError(Exception):
@@ -48,8 +48,8 @@ def telegram_user(init_data):
             return None
         user = json.loads(fields["user"])
         user_id = user.get("id") if isinstance(user, dict) else None
-        if type(user_id) is int and user_id > 0:
-            return str(user_id)
+        if type(user_id) is int and 0 < user_id < 2**52:
+            return user
     except (KeyError, ValueError):
         return None
     return None
@@ -81,23 +81,39 @@ def read_date(value):
     return day
 
 
-def supabase(method, filters=None, rows=None):
+def supabase_rpc(name, params):
     base = os.environ.get("SUPABASE_URL", "").rstrip("/")
     key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not base or not key:
         raise ApiError(503, "В Vercel нужно настроить подключение к Supabase")
-    url = f"{base}/rest/v1/homework"
-    if filters:
-        url += "?" + urlencode(filters)
-    headers = {"apikey": key, "Accept": "application/json"}
+    url = f"{base}/rest/v1/rpc/{name}"
+    headers = {"apikey": key, "Accept": "application/json", "Content-Type": "application/json"}
     if not key.startswith("sb_secret_"):
         headers["Authorization"] = f"Bearer {key}"
-    if method == "POST":
-        headers["Content-Type"] = "application/json"
-        headers["Prefer"] = "resolution=merge-duplicates,return=minimal"
-    payload = json.dumps(rows, ensure_ascii=False).encode("utf-8") if rows is not None else None
-    with urlopen(Request(url, data=payload, headers=headers, method=method), timeout=7) as response:
-        return json.load(response) if method == "GET" else None
+    payload = json.dumps(params, ensure_ascii=False).encode("utf-8")
+    with urlopen(Request(url, data=payload, headers=headers, method="POST"), timeout=7) as response:
+        return json.load(response)
+
+
+def author_profile(user):
+    username = user.get("username")
+    if isinstance(username, str) and re.fullmatch(r"[a-zA-Z0-9_]{1,32}", username):
+        name = f"@{username}"
+    else:
+        name = " ".join(
+            user[field].strip() for field in ("first_name", "last_name")
+            if isinstance(user.get(field), str) and user[field].strip()
+        )
+    name = name.replace("\x00", "").strip()[:140] or "Участник"
+    photo = user.get("photo_url")
+    if isinstance(photo, str) and len(photo) <= 2048 and not re.search(r"[\x00-\x20]", photo):
+        try:
+            url = urlsplit(photo)
+            if url.scheme == "https" and url.hostname and not url.username and not url.password:
+                return name, photo
+        except ValueError:
+            pass
+    return name, None
 
 
 def current_monday():
@@ -105,31 +121,49 @@ def current_monday():
     return today - timedelta(days=today.weekday())
 
 
-def handle_homework(data, is_admin):
+def handle_homework(data, user, is_admin):
     action = data.get("action")
-    if action not in ("list", "read", "save", "delete"):
+    if action == "save":
+        action = "save_admin"
+    if action == "delete":
+        action = "delete_admin"
+    if action not in ("list", "read", "save_admin", "delete_admin", "save_post", "delete_post"):
         raise ApiError(400, "Неизвестное действие")
-    if action != "list" and not is_admin:
+    if action in ("save_admin", "delete_admin") and not is_admin:
         raise ApiError(403, "Доступно только администратору")
+    if action == "save_post" and is_admin:
+        raise ApiError(400, "Используйте редактор задания администратора")
 
     group, subgroup = data.get("group"), data.get("subgroup")
     if not isinstance(group, str) or group not in schedule():
         raise ApiError(400, "Выберите группу")
-    if subgroup not in SUBGROUPS and not (action != "list" and subgroup == "all"):
+    if subgroup == "all":
+        if not is_admin or action not in ("read", "save_admin", "delete_admin"):
+            raise ApiError(400, "Выберите подгруппу")
+        targets = SUBGROUPS
+        visible_subgroup = data.get("viewSubgroup", "1")
+        if visible_subgroup not in SUBGROUPS:
+            raise ApiError(400, "Выберите подгруппу")
+    elif subgroup in SUBGROUPS:
+        targets = (subgroup,)
+        visible_subgroup = subgroup
+    else:
         raise ApiError(400, "Выберите подгруппу")
+
     day = read_date(data.get("date"))
     monday = current_monday()
     next_monday = monday + timedelta(days=7)
     lesson_week = day - timedelta(days=day.weekday())
     if lesson_week not in (monday, next_monday):
         raise ApiError(409, "Учебная неделя сменилась. Обновите расписание.")
-    filters = {"group_no": f"eq.{group}", "select": FIELDS}
 
     if action == "list":
         if day.weekday() != 0:
             raise ApiError(400, "Укажите понедельник нужной недели")
-        filters.update(subgroup_no=f"eq.{subgroup}", lesson_date=f"gte.{day}")
-        rows = supabase("GET", [*filters.items(), ("lesson_date", f"lt.{day + timedelta(days=7)}")])
+        rows = supabase_rpc("homework_week_v2", {
+            "p_group": int(group), "p_subgroup": int(subgroup),
+            "p_from": str(day), "p_until": str(day + timedelta(days=7)),
+        })
         rollover = datetime.combine(next_monday, datetime_time.min, LOCAL_ZONE)
         return {"items": rows, "rolloverAt": rollover.isoformat()}
 
@@ -137,39 +171,41 @@ def handle_homework(data, is_admin):
     if type(period) is not int or period <= 0:
         raise ApiError(400, "Выберите пару")
     subject, lesson_type = data.get("subject"), data.get("lessonType")
-    targets = SUBGROUPS if subgroup == "all" else (subgroup,)
     for target in targets:
         lesson = lesson_for(group, target, day, period)
         if not lesson or (lesson["subject"], lesson["type"]) != (subject, lesson_type):
             raise ApiError(400, "Для выбранной подгруппы или даты такой пары нет. Проверьте расписание.")
 
-    filters.update(
-        subgroup_no=f"in.({','.join(targets)})",
-        lesson_date=f"eq.{day}",
-        period=f"eq.{period}",
-        subject=f"eq.{subject}",
-        lesson_type=f"eq.{lesson_type}",
-    )
+    params = {
+        "action": action, "group_no": int(group), "subgroup_no": int(visible_subgroup),
+        "targets": list(map(int, targets)), "lesson_date": str(day), "period": period,
+        "subject": subject, "lesson_type": lesson_type, "is_admin": is_admin,
+        "actor_id": user["id"],
+    }
     if action == "read":
-        return {"items": supabase("GET", filters)}
-    if action == "delete":
-        filters.pop("select")
-        supabase("DELETE", filters)
-    else:
+        return supabase_rpc("homework_read_v2", {"p": params})
+
+    if action in ("save_admin", "save_post"):
         body = data.get("body")
         if not isinstance(body, str) or not 1 <= len(body.strip()) <= 3000 or "\x00" in body:
             raise ApiError(400, "Введите от 1 до 3000 символов задания")
-        updated_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        rows = [
-            {
-                "group_no": int(group), "subgroup_no": int(target), "lesson_date": str(day),
-                "period": period, "subject": subject, "lesson_type": lesson_type,
-                "body": body.strip(), "updated_at": updated_at,
-            }
-            for target in targets
-        ]
-        supabase("POST", rows=rows)
-    return {}
+        params["body"] = body.strip()
+        if action == "save_post":
+            params["author_name"], params["author_photo"] = author_profile(user)
+    if action == "delete_post":
+        try:
+            params["post_id"] = str(UUID(str(data.get("postId"))))
+        except ValueError:
+            raise ApiError(400, "Выберите задание для удаления") from None
+
+    result = supabase_rpc("homework_write_v2", {"p": params})
+    if result.get("locked"):
+        raise ApiError(409, "Администратор уже опубликовал задание для этой пары.")
+    if result.get("missing"):
+        raise ApiError(404, "Задание уже удалено или недоступно.")
+    if result.get("forbidden"):
+        raise ApiError(403, "Недостаточно прав для изменения задания.")
+    return result
 
 
 class handler(BaseHTTPRequestHandler):
@@ -196,11 +232,11 @@ class handler(BaseHTTPRequestHandler):
                 raise ApiError(400, "Некорректный запрос") from None
             if not os.environ.get("BOT_TOKEN"):
                 raise ApiError(503, "В Vercel нужно настроить BOT_TOKEN")
-            user_id = telegram_user(data.get("initData"))
-            if not user_id:
+            user = telegram_user(data.get("initData"))
+            if not user:
                 raise ApiError(401, "Откройте мини-приложение заново из Telegram")
-            is_admin = user_id in os.environ.get("HOMEWORK_ADMIN_IDS", "").replace(",", " ").split()
-            result = handle_homework(data, is_admin)
+            is_admin = str(user["id"]) in os.environ.get("HOMEWORK_ADMIN_IDS", "").replace(",", " ").split()
+            result = handle_homework(data, user, is_admin)
         except ApiError as error:
             self._send(error.status, {"error": str(error), "isAdmin": is_admin})
         except (OSError, ValueError):
