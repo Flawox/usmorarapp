@@ -167,7 +167,7 @@ html[data-th=dark] #rd .rb,html[data-th=dark] #rd .rf,html[data-th=dark] #rd .fb
 .hw-sheet-top p{margin:2px 0 0;color:var(--mut);font-size:12px}
 .hw-editor label{display:block;min-width:0;color:var(--mut);font-size:12px;font-weight:700}
 .hw-editor select,.hw-editor textarea{display:block;width:100%;min-width:0;margin-top:4px;padding:9px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px}
-.hw-editable{position:relative}
+.lesson{position:relative}
 .lesson.hw-editable .n{padding-bottom:27px}
 .hw-card-button{position:absolute;z-index:1;inset:0;width:100%;border:0;border-radius:inherit;background:transparent;cursor:pointer}
 .hw-card-button::after{content:attr(data-icon);position:absolute;bottom:5px;left:18px;width:20px;height:18px;line-height:18px;border-radius:7px;background:rgba(47,140,255,.15);color:var(--ac);font-weight:800;font-size:13px}
@@ -192,6 +192,24 @@ html[data-th=dark] #rd .rb,html[data-th=dark] #rd .rf,html[data-th=dark] #rd .fb
 .hw-status:empty{display:none}
 .hw-confirm{margin-top:10px;border:1px solid rgba(239,79,95,.24);border-radius:14px;padding:9px 11px;background:var(--card)}
 .hw-confirm p{margin:0 0 7px;color:var(--mut);font-size:12px}
+.hw-list-title{display:flex;align-items:center;gap:8px;margin:12px 0 7px;color:var(--ink);font-size:14px}
+.hw-count,.hw-own{padding:2px 8px;border-radius:10px;background:rgba(47,140,255,.13);color:var(--ac);font-size:11px}
+.hw-posts{display:grid;gap:8px}
+.hw-post,.hw-official{padding:10px 12px;border:1px solid var(--ln);border-radius:14px;background:var(--card)}
+.hw-post-head{display:flex;align-items:center;gap:7px;color:var(--ac)}
+.hw-post-head strong{font-size:12px;min-width:0;overflow-wrap:anywhere}
+.hw-avatar{position:relative;display:grid;place-items:center;flex:0 0 25px;height:25px;border-radius:50%;overflow:hidden;background:rgba(47,140,255,.18);color:var(--ac);font-size:12px;font-weight:800}
+.hw-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--bg)}
+.hw-post p,.hw-official p{margin:7px 0 0;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.hw-official{border-color:rgba(47,140,255,.32)}
+.hw-official b{color:var(--ac)}
+.hw-mini,.hw-post-delete{border:0;border-radius:10px;padding:6px 9px;background:rgba(47,140,255,.13);color:var(--ac);font:inherit;font-size:12px;font-weight:700}
+.hw-mini{margin-top:9px}
+.hw-post-delete{margin-left:auto;color:var(--bad);background:rgba(239,79,95,.1)}
+.hw-compose{margin-top:12px}
+.hw-note{margin:6px 0;color:var(--mut);font-size:12px}
+.hw-card-button.hw-plain::after{content:none}
+.hw-posts+.hw-compose{border-top:1px solid var(--ln);padding-top:4px}
 </style></head><body>
 <div class="wrap"><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1><p id="date"></p></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
 <nav id="nav"><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav><div id="rd" hidden><div id="sc"><div id="pgs" class="pdfViewer"></div></div><div class="rb"><button id="rx">‹</button><div class="rt" id="rt"></div><div class="rc"><input id="gi" type="number" inputmode="numeric" min="1"><span id="gn"></span></div><button id="sb">🔍</button></div><div class="fb" id="fb" hidden><input id="fq" type="search" placeholder="Поиск по тексту"><span id="fc"></span><button id="fp">↑</button><button id="fn">↓</button></div><div class="ld" id="ldt" hidden></div><div class="rf"><button id="zm">−</button><button class="zl" id="zl">100%</button><button id="zp">+</button><input type="range" id="sl" min="1" value="1"></div></div>
@@ -296,7 +314,7 @@ async function sched(){
   v.innerHTML=h;
   const view={scope,monday,render};
   homeworkView=view;
-  if(entry?.data)renderScheduleHomework(view,entry.data);
+  renderScheduleHomework(view,entry?.data||{items:[]});
   if(pending)pending.then(data=>{
     if(!data||!homeworkViewActive(view))return;
     renderScheduleHomework(view,data);
@@ -364,7 +382,7 @@ function waitForFirstHomework(pending){
 
 function homeworkStorageKey(){
   const id=tg?.initDataUnsafe?.user?.id;
-  return Number.isSafeInteger(id)&&id>0?'homework-cache-v1:'+id:null;
+  return Number.isSafeInteger(id)&&id>0?'homework-cache-v2:'+id:null;
 }
 
 function cachedHomeworkIsFresh(data,now){
@@ -439,10 +457,11 @@ function cardLesson(card,scope){
   return {...scope,date,period:Number(period),subject,lessonType};
 }
 
-function updateHomeworkCard(card,lesson,body){
+function updateHomeworkCard(card,lesson,assignment){
+  const body=assignment?.body, hasPosts=assignment?.has_posts;
   const content=card.querySelector('.t');
   let block=content.querySelector('.lesson-homework');
-  if(body){
+  if(body||hasPosts){
     if(!block){
       block=document.createElement('div');
       block.className='lesson-homework';
@@ -453,23 +472,26 @@ function updateHomeworkCard(card,lesson,body){
       content.classList.add('has-homework');
     }
     const text=block.querySelector('p');
-    if(text.textContent!==body)text.textContent=body;
+    text.textContent=body||'';
+    text.hidden=!body;
   }else if(block){
     block.remove();
     content.classList.remove('has-homework');
   }
   let button=card.querySelector('.hw-card-button');
-  if(S.hwAdmin){
+  if(tg?.initData){
     if(!button){
       button=document.createElement('button');
       button.className='hw-card-button';
       button.type='button';
       button.onclick=()=>openHomeworkEditor(lesson);
-      card.classList.add('hw-editable');
       card.append(button);
     }
+    card.classList.toggle('hw-editable',S.hwAdmin===true);
+    button.classList.toggle('hw-plain',S.hwAdmin!==true);
     button.dataset.icon=body?'✎':'+';
-    button.setAttribute('aria-label',`${body?'Изменить':'Добавить'} ДЗ · ${lesson.subject}, пара ${lesson.period}`);
+    const label=body||hasPosts?'Открыть домашнее задание':'Добавить домашнее задание';
+    button.setAttribute('aria-label',`${label} · ${lesson.subject}, пара ${lesson.period}`);
   }else if(button){
     button.remove();
     card.classList.remove('hw-editable');
@@ -488,7 +510,7 @@ function renderScheduleHomework(view,data){
     const delay=Date.parse(data.rolloverAt)-Date.now();
     rolloverTimer=setTimeout(refreshHomeworkWeek,Math.max(0,delay)+100);
   }
-  const assignments=new Map((data.items||[]).map(row=>[rowKey(row),row.body]));
+  const assignments=new Map((data.items||[]).map(row=>[rowKey(row),row]));
   for(const card of v.querySelectorAll('[data-lesson-date]')){
     const lesson=cardLesson(card,scope);
     const key=lessonKey(lesson.date,lesson.period,lesson.subject,lesson.lessonType);
@@ -500,14 +522,14 @@ function renderScheduleHomework(view,data){
   }
 }
 
-function applyHomeworkChange(lesson,body){
-  const {group,subgroup,date,period,subject,lessonType}=lesson;
+function applyHomeworkChange(lesson,changed){
+  const {group,date,period,subject,lessonType}=lesson;
   const week=weekMonday(date);
   if(week<weekMonday(calendarToday())){refreshHomeworkWeek();return}
   const key=lessonKey(date,period,subject,lessonType);
   const view=homeworkView;
-  for(const target of subgroup==='all'?['1','2']:[subgroup]){
-    const scope={group,subgroup:target,date:week};
+  for(const row of changed){
+    const scope={group,subgroup:String(row.subgroup_no),date:week};
     const scopeId=scopeKey(scope);
     const visible=view&&homeworkViewActive(view)&&scopeKey(view.scope)===scopeId;
     const entry=homeworkCache.get(scopeId);
@@ -516,8 +538,8 @@ function applyHomeworkChange(lesson,body){
     const snapshot=entry?.data||readSavedHomework(scope)||(visible?{items:[]}:null);
     if(snapshot){
       snapshot.items=snapshot.items.filter(row=>rowKey(row)!==key);
-      if(body)snapshot.items.push({
-        lesson_date:date,period,subject,lesson_type:lessonType,subgroup_no:Number(target),body
+      if(row.body||row.has_posts)snapshot.items.push({
+        ...row,lesson_date:date,period,subject,lesson_type:lessonType
       });
       if(entry)entry.data=snapshot;
       saveHomeworkSnapshot(scope,snapshot);
@@ -526,7 +548,7 @@ function applyHomeworkChange(lesson,body){
     for(const card of v.querySelectorAll('[data-lesson-date]')){
       const current=cardLesson(card,view.scope);
       if(lessonKey(current.date,current.period,current.subject,current.lessonType)!==key)continue;
-      updateHomeworkCard(card,current,body);
+      updateHomeworkCard(card,current,row);
       break;
     }
   }
@@ -534,7 +556,7 @@ function applyHomeworkChange(lesson,body){
 
 function openHomeworkEditor(lesson){
   const sheet=$('#hw-sheet');
-  if(sheet.open)return;
+  if(sheet.open||!tg?.initData)return;
   const {group,subgroup,date,period,subject,lessonType}=lesson;
   const day=DAYS[new Date(date+'T00:00:00Z').getUTCDay()-1];
   const other=subgroup==='1'?'2':'1';
@@ -542,93 +564,195 @@ function openHomeworkEditor(lesson){
   const shared=slot?.all||slot?.[weekKind(date)];
   const wholeGroup=shared?.subject===subject&&shared?.type===lessonType;
   sheet.dataset.lessonDate=date;
-  sheet.innerHTML=`<form class="hw-editor">
+  sheet.innerHTML=`<div class="hw-editor">
     <div class="hw-sheet-top"><span class="hw-icon" aria-hidden="true">✎</span>
-      <div><h2 id="hw-title">Домашнее задание</h2><p>Группа ${group} · ${day} · пара ${period}</p></div>
+      <div><h2 id="hw-title">Домашнее задание</h2><p>Группа ${group} · ${subgroupName(group,subgroup)} · ${day} · пара ${period}</p></div>
       <button type="button" class="hw-close" aria-label="Закрыть">×</button></div>
     <div class="hw-subject"><strong>${esc(subject)}</strong><span>${esc(lessonType)}</span></div>
-    <fieldset>
-      <label>Для кого<select name="subgroup"${wholeGroup?'':' disabled'}>
-        <option value="${subgroup}">${subgroupName(group,subgroup)}</option>
-        ${wholeGroup?'<option value="all">Вся группа</option>':''}</select></label>
-      <label>Текст задания<textarea name="body" maxlength="3000" rows="4" required placeholder="Например, § 12 и упражнения 3–5"></textarea></label>
-      <p class="hint hw-status" role="status"></p>
-      <div class="hw-actions"><button type="button" class="hw-danger hw-delete" hidden>Удалить</button>
-        <button class="btn" type="submit">Сохранить</button></div>
-      <div class="hw-confirm" hidden>
-        <p>Удалить задание для выбранных получателей?</p>
-        <button type="button" class="hw-keep">Отмена</button>
-        <button type="button" class="hw-danger hw-remove">Да, удалить</button></div>
-    </fieldset>
-  </form>`;
-  const form=sheet.querySelector('form');
-  const {subgroup:audience,body}=form.elements;
-  const saveButton=form.querySelector('[type=submit]'),deleteButton=form.querySelector('.hw-delete');
-  const fields=form.querySelector('fieldset'), status=form.querySelector('.hw-status');
-  const close=form.querySelector('.hw-close'),confirm=form.querySelector('.hw-confirm');
-  let revision=0,busy=false;
-  const selection=()=>({...lesson,subgroup:audience.value});
-  const active=()=>form.isConnected&&sheet.open;
+    <div class="hw-pane" aria-busy="true"></div>
+    <p class="hint hw-status" role="status">Загружаем задания…</p>
+    <div class="hw-confirm" hidden>
+      <p>Удалить это домашнее задание?</p>
+      <button type="button" class="hw-keep">Отмена</button>
+      <button type="button" class="hw-danger hw-remove">Да, удалить</button>
+    </div>
+  </div>`;
+  const editor=sheet.querySelector('.hw-editor');
+  const pane=editor.querySelector('.hw-pane'),status=editor.querySelector('.hw-status');
+  const close=editor.querySelector('.hw-close'),confirm=editor.querySelector('.hw-confirm');
+  let details=null, audience=subgroup, editing=false, busy=false, pendingDelete=null;
+  const active=()=>editor.isConnected&&sheet.open;
 
-  async function loadSelection(initial=false){
-    const request=++revision;
-    saveButton.disabled=body.disabled=true;
-    deleteButton.hidden=confirm.hidden=true;
-    body.value='';
-    status.textContent='Загружаем задание…';
-    try{
-      const previewBoth=initial&&wholeGroup;
-      let {items}=await homeworkRequest('read',{
-        ...selection(),subgroup:previewBoth?'all':audience.value
-      });
-      if(!active()||request!==revision)return;
-      if(previewBoth){
-        if(items.length===2&&items[0].body===items[1].body)audience.value='all';
-        else items=items.filter(item=>String(item.subgroup_no)===subgroup);
+  function render(){
+    if(!active()||!details)return;
+    const {items,posts}=details;
+    const official=items.find(item=>String(item.subgroup_no)===subgroup);
+    const own=posts.find(post=>post.mine);
+    const admin=S.hwAdmin===true;
+    const hasEditor=admin||(!official&&(editing||!posts.length));
+    let markup='';
+    if(official&&!admin){
+      markup+=`<article class="hw-official"><b>Задание администратора</b><p>${esc(official.body)}</p></article>`;
+    }
+    if(!official||admin){
+      if(posts.length){
+        markup+=`<div class="hw-list-title"><strong>Задания участников</strong><span class="hw-count">${posts.length}</span></div><div class="hw-posts">`;
+        posts.forEach((post,index)=>{
+          const name=post.author_name||'Участник';
+          const initial=Array.from(name.replace(/^@/,'').trim())[0]||'?';
+          const photo=typeof post.author_photo==='string'&&/^https:\/\//i.test(post.author_photo)?post.author_photo:'';
+          markup+=`<article class="hw-post">
+            <div class="hw-post-head"><span class="hw-avatar" aria-hidden="true">${esc(initial.toUpperCase())}${photo?`<img src="${esc(photo)}" loading="lazy" referrerpolicy="no-referrer" alt="">`:''}</span>
+              <strong>${esc(name)}</strong>
+              ${post.mine?'<span class="hw-own">Вы</span>':''}
+              ${admin||post.mine?`<button type="button" class="hw-post-delete" data-delete="${index}" aria-label="Удалить задание ${esc(name)}">Удалить</button>`:''}</div>
+            <p>${esc(post.body)}</p></article>`;
+        });
+        markup+='</div>';
       }
-      const different=audience.value==='all'&&items.length>0&&
-        (items.length!==2||items[0].body!==items[1].body);
-      form.querySelector('h2').textContent=items.length?'Изменить ДЗ':'Добавить ДЗ';
-      body.value=different?'':items[0]?.body||'';
-      status.textContent=different
-        ? 'Задания подгрупп различаются. Изменения применятся к обеим.'
-        : '';
-      deleteButton.hidden=!items.length;
-      saveButton.disabled=body.disabled=false;
-    }catch(error){
-      if(active()&&request===revision){
-        status.textContent=error instanceof SyntaxError?'Не удалось загрузить задание':error.message;
+      if(!admin&&posts.length&&!editing){
+        markup+=`<button class="hw-mini" type="button" data-edit>${own?'Изменить своё':'+ Добавить своё'}</button>`;
       }
+    }
+    if(hasEditor){
+      const selected=audience==='all'?items:items.filter(item=>String(item.subgroup_no)===audience);
+      const different=admin&&audience==='all'&&selected.length>0&&
+        (selected.length!==2||selected[0].body!==selected[1].body);
+      const value=admin?(different?'':selected[0]?.body||''):own?.body||'';
+      markup+=`<form class="hw-compose" data-mode="${admin?'admin':'post'}">
+        ${admin?`<div class="hw-list-title"><strong>Задание администратора</strong></div>
+          <label>Для кого<select name="subgroup"${wholeGroup?'':' disabled'}>
+            <option value="${subgroup}"${audience===subgroup?' selected':''}>${subgroupName(group,subgroup)}</option>
+            ${wholeGroup?`<option value="all"${audience==='all'?' selected':''}>Вся группа</option>`:''}
+          </select></label>
+          <p class="hw-note">${different?'У подгрупп разные задания. Сохранение заменит оба текста.':'После публикации ученики увидят это задание в расписании, а добавление своих закроется.'}</p>`:''}
+        <label>${admin?'Текст задания':own?'Ваше задание':'Добавить домашнее задание'}
+          <textarea name="body" maxlength="3000" rows="4" required placeholder="Например, § 12 и упражнения 3–5">${esc(value)}</textarea>
+        </label>
+        <div class="hw-actions">
+          ${admin&&selected.length?`<button class="hw-danger" type="button" data-delete-admin>Удалить официальное</button>`:''}
+          ${!admin&&posts.length?`<button class="hw-keep" type="button" data-cancel-edit>Отмена</button>`:''}
+          <button class="btn" type="submit">${admin?(selected.length?'Сохранить':'Опубликовать'):(own?'Сохранить':'Добавить')}</button>
+        </div>
+      </form>`;
+    }
+    pane.innerHTML=markup;
+    for(const img of pane.querySelectorAll('.hw-avatar img')){
+      img.onerror=()=>{img.hidden=true};
+      if(img.complete&&!img.naturalWidth)img.hidden=true;
     }
   }
 
-  async function changeAssignment(action){
-    if(busy)return;
-    busy=fields.disabled=close.disabled=true;
-    confirm.hidden=true;
-    status.textContent=action==='save'?'Сохраняем…':'Удаляем…';
+  function setBusy(value,lockClose=value){
+    busy=value;
+    pane.inert=value;
+    close.disabled=lockClose;
+    pane.setAttribute('aria-busy',String(value));
+  }
+
+  async function load(){
+    setBusy(true,false);
     try{
-      const target=selection(), text=body.value.trim();
-      await homeworkRequest(action,{...target,body:text});
-      if(active())sheet.close();
-      applyHomeworkChange(target,action==='save'?text:'');
+      const target=S.hwAdmin&&wholeGroup?'all':subgroup;
+      const read=target=>homeworkRequest('read',{...lesson,subgroup:target,viewSubgroup:subgroup});
+      let result=await read(target);
+      if(active()&&result.isAdmin&&wholeGroup&&target!=='all')result=await read('all');
+      if(!active())return;
+      syncHomeworkRole(result.isAdmin);
+      details=result;
+      if(S.hwAdmin&&details.items.length===2&&details.items[0].body===details.items[1].body)audience='all';
+      status.textContent='';
+      render();
     }catch(error){
-      if(active())status.textContent=error instanceof SyntaxError?'Не удалось изменить задание':error.message;
+      if(active()){
+        syncHomeworkRole(error.isAdmin);
+        status.textContent=error instanceof SyntaxError?'Не удалось загрузить задания':error.message;
+      }
     }finally{
-      busy=fields.disabled=close.disabled=false;
+      if(active())setBusy(false);
+    }
+  }
+
+  async function change(action, fields){
+    if(busy)return;
+    setBusy(true);
+    confirm.hidden=true;
+    status.textContent='Сохраняем изменения…';
+    try{
+      const result=await homeworkRequest(action,{...lesson,viewSubgroup:subgroup,...fields});
+      syncHomeworkRole(result.isAdmin);
+      applyHomeworkChange(lesson,result.changed);
+      if(!active())return;
+      const affected=new Set(result.changed.map(row=>row.subgroup_no));
+      details={
+        items:[...details.items.filter(item=>!affected.has(item.subgroup_no)),...result.items],
+        posts:result.posts
+      };
+      editing=false;
+      status.textContent=action.startsWith('delete')?'Задание удалено.':'Задание сохранено.';
+      render();
+    }catch(error){
+      if(active()){
+        syncHomeworkRole(error.isAdmin);
+        if(action==='save_post'&&error.status===409){
+          editing=false;
+          await load();
+          const official=details?.items.find(item=>String(item.subgroup_no)===subgroup);
+          if(active()&&official){
+            applyHomeworkChange(lesson,[{...official,has_posts:false}]);
+          }
+        }
+        if(active())status.textContent=error instanceof SyntaxError?'Не удалось изменить задание':error.message;
+      }
+    }finally{
+      if(active())setBusy(false);
     }
   }
 
   close.onclick=()=>sheet.close();
-  sheet.oncancel=event=>{if(busy)event.preventDefault()};
-  sheet.onclick=event=>{if(event.target===sheet&&!busy)sheet.close()};
-  audience.onchange=()=>loadSelection();
-  form.onsubmit=event=>{event.preventDefault();if(!saveButton.disabled)changeAssignment('save')};
-  deleteButton.onclick=()=>{confirm.hidden=false;form.querySelector('.hw-keep').focus()};
-  form.querySelector('.hw-keep').onclick=()=>{confirm.hidden=true;deleteButton.focus()};
-  form.querySelector('.hw-remove').onclick=()=>changeAssignment('delete');
+  sheet.oncancel=event=>{if(close.disabled)event.preventDefault()};
+  sheet.onclick=event=>{if(event.target===sheet&&!close.disabled)sheet.close()};
+  pane.onchange=event=>{
+    if(event.target.name==='subgroup'){
+      audience=event.target.value;
+      confirm.hidden=true;
+      render();
+    }
+  };
+  pane.onsubmit=event=>{
+    event.preventDefault();
+    const admin=event.target.dataset.mode==='admin';
+    if(!busy)change(admin?'save_admin':'save_post',{
+      subgroup:admin?audience:subgroup,body:event.target.elements.body.value.trim()
+    });
+  };
+  pane.onclick=event=>{
+    const button=event.target.closest('button');
+    if(!button||busy)return;
+    if(button.hasAttribute('data-edit')||button.hasAttribute('data-cancel-edit')){
+      editing=button.hasAttribute('data-edit');
+      confirm.hidden=true;
+      render();
+      if(editing)pane.querySelector('textarea')?.focus();
+      return;
+    }
+    if(button.hasAttribute('data-delete')){
+      pendingDelete={action:'delete_post',fields:{postId:details.posts[Number(button.dataset.delete)].id}};
+    }else if(button.hasAttribute('data-delete-admin')){
+      pendingDelete={action:'delete_admin',fields:{subgroup:audience}};
+    }else{
+      return;
+    }
+    confirm.hidden=false;
+    confirm.querySelector('.hw-keep').focus();
+  };
+  confirm.querySelector('.hw-keep').onclick=()=>{confirm.hidden=true;pendingDelete=null};
+  confirm.querySelector('.hw-remove').onclick=()=>{
+    if(pendingDelete)change(pendingDelete.action,pendingDelete.fields);
+    pendingDelete=null;
+  };
   sheet.showModal();
-  loadSelection(true);
+  load();
 }
 function setTab(b){document.querySelectorAll('#nav button').forEach((x,i)=>{x.classList.toggle('on',x==b);if(x==b)$('#ind').style.transform=`translateX(${i*100}%)`})}
 const num=m=>parseFloat(String(m).replace(',','.')),gc=m=>{const n=num(m);return isNaN(n)?'':n>=8?' g8':n>=5?' g5':' g1'};
