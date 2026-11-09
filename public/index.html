@@ -465,12 +465,11 @@ function updateHomeworkCard(card,lesson,assignment){
     if(!block){
       block=document.createElement('div');
       block.className='lesson-homework';
-      const title=document.createElement('b');
-      title.textContent='Домашнее задание';
-      block.append(title,document.createElement('p'));
+      block.append(document.createElement('b'),document.createElement('p'));
       content.append(block);
       content.classList.add('has-homework');
     }
+    block.querySelector('b').textContent=body?'Домашнее задание':'Домашнее задание (нажмите на пару)';
     const text=block.querySelector('p');
     text.textContent=body||'';
     text.hidden=!body;
@@ -592,11 +591,11 @@ function openHomeworkEditor(lesson){
     const hasEditor=admin||(!official&&(editing||!posts.length));
     let markup='';
     if(official&&!admin){
-      markup+=`<article class="hw-official"><b>Задание администратора</b><p>${esc(official.body)}</p></article>`;
+      markup+=`<article class="hw-official"><b>Задание от админа</b><p>${esc(official.body)}</p></article>`;
     }
     if(!official||admin){
       if(posts.length){
-        markup+=`<div class="hw-list-title"><strong>Задания участников</strong><span class="hw-count">${posts.length}</span></div><div class="hw-posts">`;
+        markup+=`<div class="hw-list-title"><strong>Задания от пользователей</strong><span class="hw-count">${posts.length}</span></div><div class="hw-posts">`;
         posts.forEach((post,index)=>{
           const name=post.author_name||'Участник';
           const initial=Array.from(name.replace(/^@/,'').trim())[0]||'?';
@@ -620,12 +619,12 @@ function openHomeworkEditor(lesson){
         (selected.length!==2||selected[0].body!==selected[1].body);
       const value=admin?(different?'':selected[0]?.body||''):own?.body||'';
       markup+=`<form class="hw-compose" data-mode="${admin?'admin':'post'}">
-        ${admin?`<div class="hw-list-title"><strong>Задание администратора</strong></div>
+        ${admin?`<div class="hw-list-title"><strong>Задание от админа</strong></div>
           <label>Для кого<select name="subgroup"${wholeGroup?'':' disabled'}>
             <option value="${subgroup}"${audience===subgroup?' selected':''}>${subgroupName(group,subgroup)}</option>
             ${wholeGroup?`<option value="all"${audience==='all'?' selected':''}>Вся группа</option>`:''}
           </select></label>
-          <p class="hw-note">${different?'У подгрупп разные задания. Сохранение заменит оба текста.':'После публикации ученики увидят это задание в расписании, а добавление своих закроется.'}</p>`:''}
+          <p class="hw-note">${different?'У подгрупп разные задания. Сохранение заменит оба текста.':'После публикации пользователи увидят это задание в расписании, а добавление своих закроется.'}</p>`:''}
         <label>${admin?'Текст задания':own?'Ваше задание':'Добавить домашнее задание'}
           <textarea name="body" maxlength="3000" rows="4" required placeholder="Например, § 12 и упражнения 3–5">${esc(value)}</textarea>
         </label>
