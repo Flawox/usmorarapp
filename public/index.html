@@ -266,11 +266,12 @@ async function sched(){
   const week=weekKind(monday)===kind?monday:shiftDate(monday,7);
   renderedMonday=monday;
   const scope={group:S.g,subgroup:S.sg,date:week};
-  const entry=tg?.initData?fetchHomeworkList(scope):null;
-  const pending=entry?.pending;
-  const firstHomework=!S.data&&pending&&!entry.data?waitForFirstHomework(pending):null;
+  const pending=tg?.initData?fetchHomeworkList(scope,true):null;
+  if(!S.data||pending){
+    v.innerHTML='<div class="hint" role="status">Загружаем расписание…</div>'+
+      '<div class="sk" aria-hidden="true"></div>'.repeat(4);
+  }
   if(!S.data){
-    v.innerHTML='<div class="sk"></div>'.repeat(4);
     try{
       const response=await fetch('schedule.json');
       if(!response.ok)throw new Error('schedule');
@@ -280,9 +281,10 @@ async function sched(){
       return;
     }
   }
-  if(firstHomework)await firstHomework;
+  const homework=(pending&&await pending)||homeworkCache.get(scopeKey(scope))?.data||{items:[]};
   if(!active())return;
   if(weekMonday(calendarToday())!==monday){sched();return}
+  syncHomeworkRole(homework.isAdmin);
   const D=S.data,sd=D.schedule[scope.group]?.[scope.subgroup]||{};
   const [hh,mm]=new Date().toLocaleTimeString('en-GB',{
     timeZone:'Europe/Chisinau',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
@@ -293,6 +295,10 @@ async function sched(){
     <div class="seg">${[['odd','Нечётная'],['even','Чётная']].map(([key,label])=>
       `<button type="button" data-c="week" data-k="${key}" class="${kind===key?'on':''}" aria-pressed="${kind===key}">${label}</button>`
     ).join('')}</div>`;
+  if(homework.unavailable){
+    h+=`<div class="card hint" role="status">${homework.unavailable}
+      <button type="button" class="chip" data-c="hw-retry">Обновить</button></div>`;
+  }
   DAYS.forEach((dn,di)=>{
     const date=shiftDate(week,di),isToday=date===today;
     const ds=sd[dn]||{},L={};
@@ -314,23 +320,17 @@ async function sched(){
   v.innerHTML=h;
   const view={scope,monday,render};
   homeworkView=view;
-  renderScheduleHomework(view,entry?.data||{items:[]});
-  if(pending)pending.then(data=>{
-    if(!data||!homeworkViewActive(view))return;
-    renderScheduleHomework(view,data);
+  renderScheduleHomework(view,homework);
+  if(homework.rolloverAt&&!homework.unavailable){
     const other={...scope,date:week===monday?shiftDate(monday,7):monday};
-    if(data.rolloverAt&&!homeworkCache.has(scopeKey(other)))fetchHomeworkList(other);
-  });
-  if(!tg?.initData&&!S.sc){
-    S.sc=1;
-    scrollToToday(week,today);
+    if(!homeworkCache.has(scopeKey(other)))fetchHomeworkList(other,true);
   }
 }
 
 function scrollToToday(week,today){
   if(week!==weekMonday(today))return;
   const day=(new Date(today+'T00:00:00Z').getUTCDay()+6)%7;
-  if(day>0&&day<5)document.getElementById('d'+day)?.scrollIntoView();
+  if(day>0&&day<5)document.getElementById('d'+day)?.scrollIntoView({behavior:'instant'});
 }
 
 function alignHomeworkWeek(monday){
@@ -351,9 +351,10 @@ document.addEventListener('visibilitychange',()=>{
   if(!document.hidden)refreshHomeworkWeek();
 });
 
-function homeworkRequest(action, fields){
+function homeworkRequest(action, fields, signal){
   return fetch('/api/homework',{
     method:'POST',
+    signal,
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action,initData:tg?.initData||'',...fields})
   }).then(async response=>{
@@ -372,13 +373,6 @@ const subgroupName=(group,subgroup)=>'Подгруппа '+(Number(group)+Number
 const scopeKey=({group,subgroup,date})=>JSON.stringify([group,subgroup,date]);
 const lessonKey=(date,period,subject,type)=>JSON.stringify([date,Number(period),subject,type]);
 const rowKey=row=>lessonKey(row.lesson_date,row.period,row.subject,row.lesson_type);
-
-function waitForFirstHomework(pending){
-  return new Promise(resolve=>{
-    const timer=setTimeout(resolve,900);
-    pending.then(()=>{clearTimeout(timer);resolve()});
-  });
-}
 
 function homeworkStorageKey(){
   const id=tg?.initDataUnsafe?.user?.id;
@@ -415,37 +409,42 @@ function syncHomeworkRole(isAdmin){
   if(changed&&homeworkView?.data)renderScheduleHomework(homeworkView,homeworkView.data);
 }
 
-function fetchHomeworkList(scope){
+function fetchHomeworkList(scope,reuseFresh=false){
   const key=scopeKey(scope);
   let entry=homeworkCache.get(key);
   if(!entry){
     entry={data:readSavedHomework(scope),pending:null};
     homeworkCache.set(key,entry);
   }
-  if(entry.pending)return entry;
-  const pending=homeworkRequest('list',scope).then(data=>{
+  if(entry.pending)return entry.pending;
+  if(reuseFresh&&entry.data&&Date.now()-entry.fetchedAt<15000)return Promise.resolve(entry.data);
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),9500);
+  const pending=homeworkRequest('list',scope,controller.signal).then(data=>{
     if(entry.pending!==pending||homeworkCache.get(key)!==entry)return;
-    syncHomeworkRole(data.isAdmin);
     entry.data=data;
+    entry.fetchedAt=Date.now();
     saveHomeworkSnapshot(scope,data);
     return data;
   },error=>{
     if(entry.pending!==pending||homeworkCache.get(key)!==entry)return;
     if(error.status===401||error.status===403){
-      syncHomeworkRole(false);
       homeworkCache.clear();
       const storage=homeworkStorageKey();
       if(storage)LS.s(storage,{});
       entry.data=null;
-      return {items:[]};
+      return {items:[],isAdmin:false,unavailable:'Откройте мини-приложение заново из Telegram.'};
     }
-    syncHomeworkRole(error.isAdmin);
-    return entry.data||{items:[]};
+    return {
+      ...entry.data,isAdmin:error.isAdmin,
+      unavailable:entry.data?'Показаны сохранённые ДЗ.':'Домашние задания пока недоступны.'
+    };
   }).finally(()=>{
+    clearTimeout(timeout);
     if(entry.pending===pending)entry.pending=null;
   });
   entry.pending=pending;
-  return entry;
+  return pending;
 }
 
 function homeworkViewActive(view){
@@ -767,7 +766,8 @@ const av=u?.photo_url?`<img class="ava" referrerpolicy="no-referrer" src="${esc(
 v.innerHTML=`<div class="card prof"><div class="ban"></div>${av}<div class="in"><h2 style="margin:8px 0 2px">${esc(n)}<span class="pill" id="profile-admin"${S.hwAdmin?'':' hidden'}>ADMIN</span></h2>${u?`${u.username?`<span class="pill">@${esc(u.username)}</span>`:''}<span class="pill">ID ${esc(u.id)}</span>${u.is_premium?'<span class="pill">⭐ Premium</span>':''}`:'<div class="hint" style="margin:4px 0 0">Откройте из Telegram, чтобы увидеть профиль</div>'}</div></div><div class="lbl">Настройки</div>${settings()}<div class="card list"><button class="li hl" id="bk"><span>📚</span>Учебники<i>›</i></button><button class="li" id="cc"><span>🧹</span>Очистить кэш учебников<i>›</i></button><button class="li" id="fg"><span>🔑</span>Забыть сохранённый IDNP<i>›</i></button><button class="li" id="rs" style="color:var(--bad)"><span>🔄</span>Сбросить настройки<i>›</i></button></div><p class="foot">Приложение находится в бета-версии. Дизайн со временем будет улучшаться. Возможны баги и ошибки. По всем вопросам писать: <a href="https://t.me/flawoxxx" id="ct">@flawoxxx</a></p><div class="fer"><img src="fernando.jpg" id="fer" alt=""></div>`;
 if(tg?.initData&&typeof S.hwAdmin!=='boolean'){
   const monday=weekMonday(calendarToday());
-  fetchHomeworkList({group:S.g,subgroup:S.sg,date:weekKind(monday)===S.wk?monday:shiftDate(monday,7)});
+  fetchHomeworkList({group:S.g,subgroup:S.sg,date:weekKind(monday)===S.wk?monday:shiftDate(monday,7)},true)
+    .then(data=>syncHomeworkRole(data?.isAdmin));
 }
 $('#fer').onclick=e=>bubbles(e.clientX,e.clientY);$('#ct').onclick=e=>{e.preventDefault();tg?.openTelegramLink?tg.openTelegramLink('https://t.me/flawoxxx'):window.open('https://t.me/flawoxxx')};
 $('#bk').onclick=()=>{S.bk=1;books()};$('#cc').onclick=async()=>{try{await caches.delete('usm-books-v1')}catch(e){}LS.s('cb',[]);tg?.showAlert?tg.showAlert('Кэш учебников очищен'):alert('Кэш учебников очищен')};$('#fg').onclick=()=>{LS.s('idnp','');S.J=null;tg?.showAlert?tg.showAlert('IDNP удалён с устройства'):alert('IDNP удалён с устройства')};
