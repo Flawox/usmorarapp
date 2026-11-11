@@ -266,10 +266,11 @@ async function sched(){
   const week=weekKind(monday)===kind?monday:shiftDate(monday,7);
   renderedMonday=monday;
   const scope={group:S.g,subgroup:S.sg,date:week};
+  const cached=tg?.initData?getHomeworkCache(scope).data:null;
   const pending=tg?.initData?fetchHomeworkList(scope,true):null;
-  if(!S.data||pending){
-    v.innerHTML='<div class="hint" role="status">Загружаем расписание…</div>'+
-      '<div class="sk" aria-hidden="true"></div>'.repeat(4);
+  if(!S.data||(pending&&!cached)){
+    v.innerHTML='<div role="status" aria-label="Расписание загружается">'+
+      '<div class="sk" aria-hidden="true"></div>'.repeat(4)+'</div>';
   }
   if(!S.data){
     try{
@@ -281,7 +282,7 @@ async function sched(){
       return;
     }
   }
-  const homework=(pending&&await pending)||homeworkCache.get(scopeKey(scope))?.data||{items:[]};
+  const homework=cached||(pending&&await pending)||{items:[]};
   if(!active())return;
   if(weekMonday(calendarToday())!==monday){sched();return}
   syncHomeworkRole(homework.isAdmin);
@@ -295,10 +296,7 @@ async function sched(){
     <div class="seg">${[['odd','Нечётная'],['even','Чётная']].map(([key,label])=>
       `<button type="button" data-c="week" data-k="${key}" class="${kind===key?'on':''}" aria-pressed="${kind===key}">${label}</button>`
     ).join('')}</div>`;
-  if(homework.unavailable){
-    h+=`<div class="card hint" role="status">${homework.unavailable}
-      <button type="button" class="chip" data-c="hw-retry">Обновить</button></div>`;
-  }
+  h+='<div id="homework-status" hidden></div>';
   DAYS.forEach((dn,di)=>{
     const date=shiftDate(week,di),isToday=date===today;
     const ds=sd[dn]||{},L={};
@@ -321,6 +319,11 @@ async function sched(){
   const view={scope,monday,render};
   homeworkView=view;
   renderScheduleHomework(view,homework);
+  if(cached&&pending)pending.then(fresh=>{
+    if(!fresh||!homeworkViewActive(view))return;
+    syncHomeworkRole(fresh.isAdmin,false);
+    renderScheduleHomework(view,fresh);
+  });
   if(homework.rolloverAt&&!homework.unavailable){
     const other={...scope,date:week===monday?shiftDate(monday,7):monday};
     if(!homeworkCache.has(scopeKey(other)))fetchHomeworkList(other,true);
@@ -396,36 +399,42 @@ function saveHomeworkSnapshot(scope,data){
   for(const key of Object.keys(snapshots)){
     if(!cachedHomeworkIsFresh(snapshots[key],now))delete snapshots[key];
   }
-  snapshots[scopeKey(scope)]={items:data.items,rolloverAt:data.rolloverAt,savedAt:now};
+  snapshots[scopeKey(scope)]={items:data.items,isAdmin:data.isAdmin,rolloverAt:data.rolloverAt,savedAt:now};
   LS.s(storage,snapshots);
 }
 
-function syncHomeworkRole(isAdmin){
+function syncHomeworkRole(isAdmin,refreshSchedule=true){
   if(typeof isAdmin!=='boolean')return;
   const changed=S.hwAdmin!==isAdmin;
   S.hwAdmin=isAdmin;
   const badge=$('#profile-admin');
   if(badge)badge.hidden=!isAdmin;
-  if(changed&&homeworkView?.data)renderScheduleHomework(homeworkView,homeworkView.data);
+  if(changed&&refreshSchedule&&homeworkView?.data)renderScheduleHomework(homeworkView,homeworkView.data);
 }
 
-function fetchHomeworkList(scope,reuseFresh=false){
+function getHomeworkCache(scope){
   const key=scopeKey(scope);
   let entry=homeworkCache.get(key);
   if(!entry){
     entry={data:readSavedHomework(scope),pending:null};
     homeworkCache.set(key,entry);
   }
+  if(entry.data&&!cachedHomeworkIsFresh(entry.data,Date.now()))entry.data=null;
+  return entry;
+}
+
+function fetchHomeworkList(scope,reuseFresh=false){
+  const key=scopeKey(scope), entry=getHomeworkCache(scope);
   if(entry.pending)return entry.pending;
   if(reuseFresh&&entry.data&&Date.now()-entry.fetchedAt<15000)return Promise.resolve(entry.data);
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),9500);
   const pending=homeworkRequest('list',scope,controller.signal).then(data=>{
     if(entry.pending!==pending||homeworkCache.get(key)!==entry)return;
-    entry.data=data;
+    entry.data={...data,savedAt:Date.now()};
     entry.fetchedAt=Date.now();
     saveHomeworkSnapshot(scope,data);
-    return data;
+    return entry.data;
   },error=>{
     if(entry.pending!==pending||homeworkCache.get(key)!==entry)return;
     if(error.status===401||error.status===403){
@@ -499,6 +508,7 @@ function updateHomeworkCard(card,lesson,assignment){
 function renderScheduleHomework(view,data){
   if(!homeworkViewActive(view)||(view.data===data&&view.isAdmin===S.hwAdmin))return;
   if(weekMonday(calendarToday())!==view.monday){refreshHomeworkWeek();return}
+  const previous=view.data, roleChanged=view.isAdmin!==S.hwAdmin;
   view.data=data;
   view.isAdmin=S.hwAdmin;
   const {scope}=view;
@@ -509,10 +519,32 @@ function renderScheduleHomework(view,data){
     rolloverTimer=setTimeout(refreshHomeworkWeek,Math.max(0,delay)+100);
   }
   const assignments=new Map((data.items||[]).map(row=>[rowKey(row),row]));
-  for(const card of v.querySelectorAll('[data-lesson-date]')){
+  const oldAssignments=new Map((previous?.items||[]).map(row=>[rowKey(row),row]));
+  const cards=[...v.querySelectorAll('[data-lesson-date]')];
+  const status=$('#homework-status');
+  const statusChanged=status&&data.unavailable!==previous?.unavailable;
+  const changes=[];
+  for(const card of cards){
     const lesson=cardLesson(card,scope);
     const key=lessonKey(lesson.date,lesson.period,lesson.subject,lesson.lessonType);
-    updateHomeworkCard(card,lesson,assignments.get(key));
+    const assignment=assignments.get(key), old=oldAssignments.get(key);
+    if(!previous||roleChanged||(assignment?.body||'')!==(old?.body||'')||
+      Boolean(assignment?.has_posts)!==Boolean(old?.has_posts)){
+      changes.push({card,lesson,assignment});
+    }
+  }
+  const anchor=previous&&(changes.length||statusChanged)&&
+    cards.find(card=>card.getBoundingClientRect().bottom>0);
+  const top=anchor&&anchor.getBoundingClientRect().top;
+  if(statusChanged){
+    status.hidden=!data.unavailable;
+    status.innerHTML=data.unavailable?`<div class="card hint" role="status">${data.unavailable}
+      <button type="button" class="chip" data-c="hw-retry">Обновить</button></div>`:'';
+  }
+  for(const {card,lesson,assignment} of changes)updateHomeworkCard(card,lesson,assignment);
+  if(anchor){
+    const shift=anchor.getBoundingClientRect().top-top;
+    if(shift)window.scrollBy({top:shift,behavior:'instant'});
   }
   if(!S.sc){
     S.sc=1;
