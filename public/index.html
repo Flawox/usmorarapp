@@ -917,7 +917,6 @@ async function checkBotAccess(){
       if(startGate.open)startGate.close();
     }else{
       startStatus.textContent='';
-      startRetry.hidden=false;
       showStartGate(true);
     }
   }catch(error){
