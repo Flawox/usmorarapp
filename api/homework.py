@@ -2,8 +2,8 @@ from datetime import date, datetime, time as datetime_time, timedelta
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+from threading import local
 from urllib.parse import parse_qsl, urlsplit
-from urllib.request import Request, urlopen
 from uuid import UUID
 from zoneinfo import ZoneInfo
 import hashlib
@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import re
+import requests
 import time
 
 DAYS = ("Понедельник", "Вторник", "Среда", "Четверг", "Пятница")
@@ -19,6 +20,7 @@ ODD_WEEK = date(2026, 9, 21)
 LOCAL_ZONE = ZoneInfo("Europe/Chisinau")
 SCHEDULE_PATH = Path(__file__).resolve().parent.parent / "public" / "schedule.json"
 SUBGROUPS = ("1", "2")
+HTTP_CLIENT = local()
 
 
 class ApiError(Exception):
@@ -91,8 +93,15 @@ def supabase_rpc(name, params):
     if not key.startswith("sb_secret_"):
         headers["Authorization"] = f"Bearer {key}"
     payload = json.dumps(params, ensure_ascii=False).encode("utf-8")
-    with urlopen(Request(url, data=payload, headers=headers, method="POST"), timeout=7) as response:
-        return json.load(response)
+    # Each worker thread keeps its own pool of reusable HTTPS connections.
+    session = getattr(HTTP_CLIENT, "session", None)
+    if session is None:
+        session = requests.Session()
+        HTTP_CLIENT.session = session
+    with session.post(url, data=payload, headers=headers, timeout=7, allow_redirects=False) as response:
+        if not 200 <= response.status_code < 300:
+            raise ApiError(503, "Домашние задания сейчас недоступны. Попробуйте позже.")
+        return response.json()
 
 
 def author_profile(user):
