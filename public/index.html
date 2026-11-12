@@ -255,7 +255,7 @@ const chips=(arr,cur,cb,pre='')=>`<div class="row">${arr.map(([k,l])=>`<button c
 v.onclick=e=>{const b=e.target.closest('[data-c]');if(!b)return;const k=b.dataset.k,c=b.dataset.c;tg?.HapticFeedback?.selectionChanged();
 if(c=='g')S.g=k;if(c=='sg')S.sg=k;if(c=='th'){S.th=k;applyTheme()}if(c==='week'){S.wk=k;wkTxt()}if(c=='sub')S.sub=k;if(!S.ob&&'g sg th'.split(' ').includes(c))save();go()};
 let scheduleRender=0, renderedMonday='', rolloverTimer, homeworkView;
-const homeworkCache=new Map(), HOMEWORK_CACHE_TTL=10*60*1000;
+const homeworkCache=new Map(), HOMEWORK_CACHE_TTL=7*24*60*60*1000;
 
 async function sched(){
   const render=++scheduleRender;
