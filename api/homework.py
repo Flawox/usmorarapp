@@ -83,6 +83,41 @@ def read_date(value):
     return day
 
 
+def http_session():
+    session = getattr(HTTP_CLIENT, "session", None)
+    if session is None:
+        session = requests.Session()
+        HTTP_CLIENT.session = session
+    return session
+
+
+def bot_chat_started(user_id):
+    token = os.environ["BOT_TOKEN"]
+    unavailable = "Не удалось проверить чат с ботом. Попробуйте ещё раз."
+    try:
+        with http_session().post(
+            f"https://api.telegram.org/bot{token}/getChat",
+            json={"chat_id": user_id},
+            timeout=5,
+            allow_redirects=False,
+        ) as response:
+            data = response.json()
+    except (requests.RequestException, ValueError):
+        raise ApiError(503, unavailable) from None
+    if isinstance(data, dict):
+        chat = data.get("result")
+        if data.get("ok") is True and isinstance(chat, dict):
+            return chat.get("type") == "private" and chat.get("id") == user_id
+        description = str(data.get("description", "")).lower()
+        if data.get("error_code") == 400 and "chat not found" in description:
+            return False
+        if data.get("error_code") == 403 and (
+            "blocked by the user" in description or "can't initiate conversation" in description
+        ):
+            return False
+    raise ApiError(503, unavailable)
+
+
 def supabase_rpc(name, params):
     base = os.environ.get("SUPABASE_URL", "").rstrip("/")
     key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -93,12 +128,7 @@ def supabase_rpc(name, params):
     if not key.startswith("sb_secret_"):
         headers["Authorization"] = f"Bearer {key}"
     payload = json.dumps(params, ensure_ascii=False).encode("utf-8")
-    # Each worker thread keeps its own pool of reusable HTTPS connections.
-    session = getattr(HTTP_CLIENT, "session", None)
-    if session is None:
-        session = requests.Session()
-        HTTP_CLIENT.session = session
-    with session.post(url, data=payload, headers=headers, timeout=7, allow_redirects=False) as response:
+    with http_session().post(url, data=payload, headers=headers, timeout=7, allow_redirects=False) as response:
         if not 200 <= response.status_code < 300:
             raise ApiError(503, "Домашние задания сейчас недоступны. Попробуйте позже.")
         return response.json()
@@ -245,7 +275,10 @@ class handler(BaseHTTPRequestHandler):
             if not user:
                 raise ApiError(401, "Откройте мини-приложение заново из Telegram")
             is_admin = str(user["id"]) in os.environ.get("HOMEWORK_ADMIN_IDS", "").replace(",", " ").split()
-            result = handle_homework(data, user, is_admin)
+            if data.get("action") == "access":
+                result = {"started": bot_chat_started(user["id"])}
+            else:
+                result = handle_homework(data, user, is_admin)
         except ApiError as error:
             self._send(error.status, {"error": str(error), "isAdmin": is_admin})
         except (OSError, ValueError):
