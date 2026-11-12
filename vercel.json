@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/homework.py": {
+      "regions": ["dub1"],
       "includeFiles": "public/schedule.json"
     }
   }
