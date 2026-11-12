@@ -221,7 +221,7 @@ html[data-th=dark] #rd .rb,html[data-th=dark] #rd .rf,html[data-th=dark] #rd .fb
 #start-status:not(:empty){margin-top:12px;font-size:13px}
 body:has(#start-gate:not([hidden])){padding-bottom:0}
 </style></head><body>
-<main id="start-gate"><section class="start-card" aria-labelledby="start-title">
+<main id="start-gate" hidden><section class="start-card" aria-labelledby="start-title">
   <div class="start-icon" aria-hidden="true">🏛</div>
   <h1 id="start-title">Добро пожаловать в расписание USM!</h1>
   <div id="start-content" hidden>
@@ -566,7 +566,7 @@ function renderScheduleHomework(view,data){
     const shift=anchor.getBoundingClientRect().top-top;
     if(shift)window.scrollBy({top:shift,behavior:'instant'});
   }
-  if(!S.sc){
+  if(!S.sc&&!$('.wrap').hidden){
     S.sc=1;
     scrollToToday(week,calendarToday());
   }
@@ -885,10 +885,23 @@ h+=evHtml(J.evaluations)}
 h+='<button class="btn alt" id="ex">Выйти</button>';v.innerHTML=h;$('#ex').onclick=()=>{S.J=null;journal()}}
 const startGate=$('#start-gate'), startContent=$('#start-content'), startStatus=$('#start-status');
 const startButton=$('#start-bot'), startRetry=$('#start-retry');
-let checkingAccess=false;
+const startUserKey=homeworkStorageKey();
+const startStorageKey=startUserKey&&startUserKey+':started';
+let checkingAccess=false, accessGranted=false;
+function showApp(){
+  accessGranted=true;
+  startGate.hidden=true;
+  $('.wrap').hidden=false;
+  $('#nav').hidden=false;
+  if(!S.sc&&homeworkView&&homeworkViewActive(homeworkView)){
+    S.sc=1;
+    scrollToToday(homeworkView.scope.date,calendarToday());
+  }
+}
 async function checkBotAccess(){
-  if(startGate.hidden||checkingAccess)return;
+  if(accessGranted||checkingAccess)return;
   if(!tg?.initData){
+    startGate.hidden=false;
     startContent.hidden=false;
     startStatus.textContent='';
     return;
@@ -901,17 +914,17 @@ async function checkBotAccess(){
   try{
     const access=await homeworkRequest('access',{},controller.signal);
     if(access.started===true){
+      if(startStorageKey)LS.s(startStorageKey,true);
       syncHomeworkRole(access.isAdmin);
-      startGate.hidden=true;
-      $('.wrap').hidden=false;
-      $('#nav').hidden=false;
-      go();
+      showApp();
     }else{
+      startGate.hidden=false;
       startContent.hidden=false;
       startStatus.textContent='';
       startRetry.hidden=false;
     }
   }catch(error){
+    startGate.hidden=false;
     startStatus.textContent=error.status===401?error.message:'Не удалось проверить доступ. Попробуй ещё раз.';
     startRetry.hidden=false;
   }finally{
@@ -931,6 +944,12 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('focus',checkBotAccess);
 tg?.onEvent?.('activated',checkBotAccess);
-checkBotAccess();
+if(tg?.initData){
+  if(startStorageKey&&LS.g(startStorageKey,false)===true)showApp();
+  else checkBotAccess();
+  go();
+}else{
+  checkBotAccess();
+}
 
 </script></body></html>
