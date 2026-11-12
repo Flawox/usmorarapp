@@ -210,9 +210,29 @@ html[data-th=dark] #rd .rb,html[data-th=dark] #rd .rf,html[data-th=dark] #rd .fb
 .hw-note{margin:6px 0;color:var(--mut);font-size:12px}
 .hw-card-button.hw-plain::after{content:none}
 .hw-posts+.hw-compose{border-top:1px solid var(--ln);padding-top:4px}
+
+[hidden].wrap,#nav[hidden],#start-gate[hidden],#start-content[hidden],#start-retry[hidden]{display:none}
+#start-gate{min-height:calc(100vh - env(safe-area-inset-top));min-height:calc(100dvh - env(safe-area-inset-top));display:grid;place-items:center;padding:24px 18px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box}
+.start-card{width:min(100%,390px);padding:28px 22px 22px;text-align:center;border:1px solid var(--ln);border-radius:26px;background:var(--card);box-shadow:var(--sh)}
+.start-icon{display:grid;place-items:center;width:62px;height:62px;margin:0 auto 16px;border-radius:20px;background:linear-gradient(135deg,var(--b1),var(--b2));font-size:30px;box-shadow:0 8px 20px rgba(11,91,211,.2)}
+.start-card h1{font-size:23px;line-height:1.2;margin:0 0 8px}
+.start-card p{color:var(--mut);margin:0}
+.start-card .btn{display:block;box-sizing:border-box;text-decoration:none}
+#start-status:not(:empty){margin-top:12px;font-size:13px}
+body:has(#start-gate:not([hidden])){padding-bottom:0}
 </style></head><body>
-<div class="wrap"><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1><p id="date"></p></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
-<nav id="nav"><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav><div id="rd" hidden><div id="sc"><div id="pgs" class="pdfViewer"></div></div><div class="rb"><button id="rx">‹</button><div class="rt" id="rt"></div><div class="rc"><input id="gi" type="number" inputmode="numeric" min="1"><span id="gn"></span></div><button id="sb">🔍</button></div><div class="fb" id="fb" hidden><input id="fq" type="search" placeholder="Поиск по тексту"><span id="fc"></span><button id="fp">↑</button><button id="fn">↓</button></div><div class="ld" id="ldt" hidden></div><div class="rf"><button id="zm">−</button><button class="zl" id="zl">100%</button><button id="zp">+</button><input type="range" id="sl" min="1" value="1"></div></div>
+<main id="start-gate"><section class="start-card" aria-labelledby="start-title">
+  <div class="start-icon" aria-hidden="true">🏛</div>
+  <h1 id="start-title">Добро пожаловать в расписание USM!</h1>
+  <div id="start-content" hidden>
+    <p>Чтобы открыть расписание, нажми «Старт» в чате с ботом.</p>
+    <a class="btn" id="start-bot" href="https://t.me/usmorarbot?start=usm">Старт</a>
+  </div>
+  <p id="start-status" role="status">Проверяем доступ…</p>
+  <button class="btn" id="start-retry" type="button" hidden>Проверить снова</button>
+</section></main>
+<div class="wrap" hidden><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1><p id="date"></p></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
+<nav id="nav" hidden><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav><div id="rd" hidden><div id="sc"><div id="pgs" class="pdfViewer"></div></div><div class="rb"><button id="rx">‹</button><div class="rt" id="rt"></div><div class="rc"><input id="gi" type="number" inputmode="numeric" min="1"><span id="gn"></span></div><button id="sb">🔍</button></div><div class="fb" id="fb" hidden><input id="fq" type="search" placeholder="Поиск по тексту"><span id="fc"></span><button id="fp">↑</button><button id="fn">↓</button></div><div class="ld" id="ldt" hidden></div><div class="rf"><button id="zm">−</button><button class="zl" id="zl">100%</button><button id="zp">+</button><input type="range" id="sl" min="1" value="1"></div></div>
 <dialog class="hw-sheet" id="hw-sheet" aria-labelledby="hw-title"></dialog>
 <script>
 const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#e8f3ff');tg.setBackgroundColor('#e8f3ff')}catch(e){}}
@@ -285,7 +305,7 @@ async function sched(){
   const homework=cached||(pending&&await pending)||{items:[]};
   if(!active())return;
   if(weekMonday(calendarToday())!==monday){sched();return}
-  syncHomeworkRole(homework.isAdmin);
+  if(!cached||typeof S.hwAdmin!=='boolean')syncHomeworkRole(homework.isAdmin);
   const D=S.data,sd=D.schedule[scope.group]?.[scope.subgroup]||{};
   const [hh,mm]=new Date().toLocaleTimeString('en-GB',{
     timeZone:'Europe/Chisinau',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
@@ -477,7 +497,7 @@ function updateHomeworkCard(card,lesson,assignment){
       content.append(block);
       content.classList.add('has-homework');
     }
-    block.querySelector('b').textContent=body?'Домашнее задание':'Домашнее задание (нажмите на пару)';
+    block.querySelector('b').textContent=body?'Задание от админа':'Домашнее задание (нажмите на пару)';
     const text=block.querySelector('p');
     text.textContent=body||'';
     text.hidden=!body;
@@ -548,7 +568,7 @@ function renderScheduleHomework(view,data){
   }
   if(!S.sc){
     S.sc=1;
-    if(!S.hwAdmin)scrollToToday(week,calendarToday());
+    scrollToToday(week,calendarToday());
   }
 }
 
@@ -619,30 +639,28 @@ function openHomeworkEditor(lesson){
     const official=items.find(item=>String(item.subgroup_no)===subgroup);
     const own=posts.find(post=>post.mine);
     const admin=S.hwAdmin===true;
-    const hasEditor=admin||(!official&&(editing||!posts.length));
+    const hasEditor=admin||editing||!posts.length;
     let markup='';
-    if(official&&!admin){
+    if(official){
       markup+=`<article class="hw-official"><b>Задание от админа</b><p>${esc(official.body)}</p></article>`;
     }
-    if(!official||admin){
-      if(posts.length){
-        markup+=`<div class="hw-list-title"><strong>Задания от пользователей</strong><span class="hw-count">${posts.length}</span></div><div class="hw-posts">`;
-        posts.forEach((post,index)=>{
-          const name=post.author_name||'Участник';
-          const initial=Array.from(name.replace(/^@/,'').trim())[0]||'?';
-          const photo=typeof post.author_photo==='string'&&/^https:\/\//i.test(post.author_photo)?post.author_photo:'';
-          markup+=`<article class="hw-post">
-            <div class="hw-post-head"><span class="hw-avatar" aria-hidden="true">${esc(initial.toUpperCase())}${photo?`<img src="${esc(photo)}" loading="lazy" referrerpolicy="no-referrer" alt="">`:''}</span>
-              <strong>${esc(name)}</strong>
-              ${post.mine?'<span class="hw-own">Вы</span>':''}
-              ${admin||post.mine?`<button type="button" class="hw-post-delete" data-delete="${index}" aria-label="Удалить задание ${esc(name)}">Удалить</button>`:''}</div>
-            <p>${esc(post.body)}</p></article>`;
-        });
-        markup+='</div>';
-      }
-      if(!admin&&posts.length&&!editing){
-        markup+=`<button class="hw-mini" type="button" data-edit>${own?'Изменить своё':'+ Добавить своё'}</button>`;
-      }
+    if(posts.length){
+      markup+=`<div class="hw-list-title"><strong>Задания от пользователей</strong><span class="hw-count">${posts.length}</span></div><div class="hw-posts">`;
+      posts.forEach((post,index)=>{
+        const name=post.author_name||'Участник';
+        const initial=Array.from(name.replace(/^@/,'').trim())[0]||'?';
+        const photo=typeof post.author_photo==='string'&&/^https:\/\//i.test(post.author_photo)?post.author_photo:'';
+        markup+=`<article class="hw-post">
+          <div class="hw-post-head"><span class="hw-avatar" aria-hidden="true">${esc(initial.toUpperCase())}${photo?`<img src="${esc(photo)}" loading="lazy" referrerpolicy="no-referrer" alt="">`:''}</span>
+            <strong>${esc(name)}</strong>
+            ${post.mine?'<span class="hw-own">Вы</span>':''}
+            ${admin||post.mine?`<button type="button" class="hw-post-delete" data-delete="${index}" aria-label="Удалить задание ${esc(name)}">Удалить</button>`:''}</div>
+          <p>${esc(post.body)}</p></article>`;
+      });
+      markup+='</div>';
+    }
+    if(!admin&&posts.length&&!editing){
+      markup+=`<button class="hw-mini" type="button" data-edit>${own?'Изменить своё':'+ Добавить своё'}</button>`;
     }
     if(hasEditor){
       const selected=audience==='all'?items:items.filter(item=>String(item.subgroup_no)===audience);
@@ -655,7 +673,7 @@ function openHomeworkEditor(lesson){
             <option value="${subgroup}"${audience===subgroup?' selected':''}>${subgroupName(group,subgroup)}</option>
             ${wholeGroup?`<option value="all"${audience==='all'?' selected':''}>Вся группа</option>`:''}
           </select></label>
-          <p class="hw-note">${different?'У подгрупп разные задания. Сохранение заменит оба текста.':'После публикации пользователи увидят это задание в расписании, а добавление своих закроется.'}</p>`:''}
+          <p class="hw-note">${different?'У подгрупп разные задания. Сохранение заменит оба текста.':'После публикации задание появится под парой в расписании.'}</p>`:''}
         <label>${admin?'Текст задания':own?'Ваше задание':'Добавить домашнее задание'}
           <textarea name="body" maxlength="3000" rows="4" required placeholder="Например, § 12 и упражнения 3–5">${esc(value)}</textarea>
         </label>
@@ -724,14 +742,6 @@ function openHomeworkEditor(lesson){
     }catch(error){
       if(active()){
         syncHomeworkRole(error.isAdmin);
-        if(action==='save_post'&&error.status===409){
-          editing=false;
-          await load();
-          const official=details?.items.find(item=>String(item.subgroup_no)===subgroup);
-          if(active()&&official){
-            applyHomeworkChange(lesson,[{...official,has_posts:false}]);
-          }
-        }
         if(active())status.textContent=error instanceof SyntaxError?'Не удалось изменить задание':error.message;
       }
     }finally{
@@ -873,5 +883,54 @@ h+=`<div class="card" style="animation-delay:${i*40}ms"><b>${esc(a.subject)}</b>
 else{if(!J.evaluations.length)h+='<div class="card empty">Оценок за тесты пока нет</div>';
 h+=evHtml(J.evaluations)}
 h+='<button class="btn alt" id="ex">Выйти</button>';v.innerHTML=h;$('#ex').onclick=()=>{S.J=null;journal()}}
-go();
+const startGate=$('#start-gate'), startContent=$('#start-content'), startStatus=$('#start-status');
+const startButton=$('#start-bot'), startRetry=$('#start-retry');
+let checkingAccess=false;
+async function checkBotAccess(){
+  if(startGate.hidden||checkingAccess)return;
+  if(!tg?.initData){
+    startContent.hidden=false;
+    startStatus.textContent='';
+    return;
+  }
+  checkingAccess=true;
+  startRetry.hidden=true;
+  startStatus.textContent='Проверяем доступ…';
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),8000);
+  try{
+    const access=await homeworkRequest('access',{},controller.signal);
+    if(access.started===true){
+      syncHomeworkRole(access.isAdmin);
+      startGate.hidden=true;
+      $('.wrap').hidden=false;
+      $('#nav').hidden=false;
+      go();
+    }else{
+      startContent.hidden=false;
+      startStatus.textContent='';
+      startRetry.hidden=false;
+    }
+  }catch(error){
+    startStatus.textContent=error.status===401?error.message:'Не удалось проверить доступ. Попробуй ещё раз.';
+    startRetry.hidden=false;
+  }finally{
+    clearTimeout(timeout);
+    checkingAccess=false;
+  }
+}
+startButton.onclick=event=>{
+  if(tg?.openTelegramLink){
+    event.preventDefault();
+    tg.openTelegramLink(startButton.href);
+  }
+};
+startRetry.onclick=checkBotAccess;
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden)checkBotAccess();
+});
+window.addEventListener('focus',checkBotAccess);
+tg?.onEvent?.('activated',checkBotAccess);
+checkBotAccess();
+
 </script></body></html>
