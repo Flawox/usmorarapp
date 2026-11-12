@@ -211,17 +211,18 @@ html[data-th=dark] #rd .rb,html[data-th=dark] #rd .rf,html[data-th=dark] #rd .fb
 .hw-card-button.hw-plain::after{content:none}
 .hw-posts+.hw-compose{border-top:1px solid var(--ln);padding-top:4px}
 
-[hidden].wrap,#nav[hidden],#start-gate[hidden],#start-content[hidden],#start-retry[hidden]{display:none}
-#start-gate{min-height:calc(100vh - env(safe-area-inset-top));min-height:calc(100dvh - env(safe-area-inset-top));display:grid;place-items:center;padding:24px 18px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box}
+#start-content[hidden],#start-retry[hidden]{display:none}
+#start-gate{position:fixed;inset:0;margin:0;width:100%;height:100%;max-width:none;max-height:none;padding:calc(24px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));border:0;background:var(--bg);color:var(--ink);box-sizing:border-box}
+#start-gate[open]{display:grid;place-items:center}
+body:has(#start-gate[open]){overflow:hidden}
 .start-card{width:min(100%,390px);padding:28px 22px 22px;text-align:center;border:1px solid var(--ln);border-radius:26px;background:var(--card);box-shadow:var(--sh)}
 .start-icon{display:grid;place-items:center;width:62px;height:62px;margin:0 auto 16px;border-radius:20px;background:linear-gradient(135deg,var(--b1),var(--b2));font-size:30px;box-shadow:0 8px 20px rgba(11,91,211,.2)}
 .start-card h1{font-size:23px;line-height:1.2;margin:0 0 8px}
 .start-card p{color:var(--mut);margin:0}
 .start-card .btn{display:block;box-sizing:border-box;text-decoration:none}
 #start-status:not(:empty){margin-top:12px;font-size:13px}
-body:has(#start-gate:not([hidden])){padding-bottom:0}
 </style></head><body>
-<main id="start-gate" hidden><section class="start-card" aria-labelledby="start-title">
+<dialog id="start-gate" aria-labelledby="start-title"><section class="start-card">
   <div class="start-icon" aria-hidden="true">🏛</div>
   <h1 id="start-title">Добро пожаловать в расписание USM!</h1>
   <div id="start-content" hidden>
@@ -230,9 +231,9 @@ body:has(#start-gate:not([hidden])){padding-bottom:0}
   </div>
   <p id="start-status" role="status">Проверяем доступ…</p>
   <button class="btn" id="start-retry" type="button" hidden>Проверить снова</button>
-</section></main>
-<div class="wrap" hidden><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1><p id="date"></p></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
-<nav id="nav" hidden><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav><div id="rd" hidden><div id="sc"><div id="pgs" class="pdfViewer"></div></div><div class="rb"><button id="rx">‹</button><div class="rt" id="rt"></div><div class="rc"><input id="gi" type="number" inputmode="numeric" min="1"><span id="gn"></span></div><button id="sb">🔍</button></div><div class="fb" id="fb" hidden><input id="fq" type="search" placeholder="Поиск по тексту"><span id="fc"></span><button id="fp">↑</button><button id="fn">↓</button></div><div class="ld" id="ldt" hidden></div><div class="rf"><button id="zm">−</button><button class="zl" id="zl">100%</button><button id="zp">+</button><input type="range" id="sl" min="1" value="1"></div></div>
+</section></dialog>
+<div class="wrap"><header><div class="hl"><div class="hi">🏛</div><div class="ht"><h1>Расписание USM</h1><p id="date"></p></div></div><span class="badge" id="wk"></span></header><main id="v"></main></div>
+<nav id="nav"><i id="ind"></i><button data-t="sch" class="on"><span>📅</span>Пары</button><button data-t="w"><span>🌤</span>Погода</button><button data-t="j"><span>📖</span>Журнал</button><button data-t="p"><span>👤</span>Профиль</button></nav><div id="rd" hidden><div id="sc"><div id="pgs" class="pdfViewer"></div></div><div class="rb"><button id="rx">‹</button><div class="rt" id="rt"></div><div class="rc"><input id="gi" type="number" inputmode="numeric" min="1"><span id="gn"></span></div><button id="sb">🔍</button></div><div class="fb" id="fb" hidden><input id="fq" type="search" placeholder="Поиск по тексту"><span id="fc"></span><button id="fp">↑</button><button id="fn">↓</button></div><div class="ld" id="ldt" hidden></div><div class="rf"><button id="zm">−</button><button class="zl" id="zl">100%</button><button id="zp">+</button><input type="range" id="sl" min="1" value="1"></div></div>
 <dialog class="hw-sheet" id="hw-sheet" aria-labelledby="hw-title"></dialog>
 <script>
 const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#e8f3ff');tg.setBackgroundColor('#e8f3ff')}catch(e){}}
@@ -566,7 +567,7 @@ function renderScheduleHomework(view,data){
     const shift=anchor.getBoundingClientRect().top-top;
     if(shift)window.scrollBy({top:shift,behavior:'instant'});
   }
-  if(!S.sc&&!$('.wrap').hidden){
+  if(!S.sc){
     S.sc=1;
     scrollToToday(week,calendarToday());
   }
@@ -887,23 +888,19 @@ const startGate=$('#start-gate'), startContent=$('#start-content'), startStatus=
 const startButton=$('#start-bot'), startRetry=$('#start-retry');
 const startUserKey=homeworkStorageKey();
 const startStorageKey=startUserKey&&startUserKey+':started';
-let checkingAccess=false, accessGranted=false;
-function showApp(){
-  accessGranted=true;
-  startGate.hidden=true;
-  $('.wrap').hidden=false;
-  $('#nav').hidden=false;
-  if(!S.sc&&homeworkView&&homeworkViewActive(homeworkView)){
-    S.sc=1;
-    scrollToToday(homeworkView.scope.date,calendarToday());
-  }
+let checkingAccess=false;
+let accessGranted=Boolean(tg?.initData&&startStorageKey&&LS.g(startStorageKey,false)===true);
+startGate.oncancel=event=>event.preventDefault();
+function showStartGate(needsStart){
+  $('#start-title').textContent=needsStart?'Добро пожаловать в расписание USM!':'Проверка доступа';
+  startContent.hidden=!needsStart;
+  if(!startGate.open)startGate.showModal();
 }
 async function checkBotAccess(){
   if(accessGranted||checkingAccess)return;
   if(!tg?.initData){
-    startGate.hidden=false;
-    startContent.hidden=false;
     startStatus.textContent='';
+    showStartGate(true);
     return;
   }
   checkingAccess=true;
@@ -916,17 +913,17 @@ async function checkBotAccess(){
     if(access.started===true){
       if(startStorageKey)LS.s(startStorageKey,true);
       syncHomeworkRole(access.isAdmin);
-      showApp();
+      accessGranted=true;
+      if(startGate.open)startGate.close();
     }else{
-      startGate.hidden=false;
-      startContent.hidden=false;
       startStatus.textContent='';
       startRetry.hidden=false;
+      showStartGate(true);
     }
   }catch(error){
-    startGate.hidden=false;
     startStatus.textContent=error.status===401?error.message:'Не удалось проверить доступ. Попробуй ещё раз.';
     startRetry.hidden=false;
+    showStartGate(false);
   }finally{
     clearTimeout(timeout);
     checkingAccess=false;
@@ -944,12 +941,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('focus',checkBotAccess);
 tg?.onEvent?.('activated',checkBotAccess);
-if(tg?.initData){
-  if(startStorageKey&&LS.g(startStorageKey,false)===true)showApp();
-  else checkBotAccess();
-  go();
-}else{
-  checkBotAccess();
-}
+if(tg?.initData)go();
+checkBotAccess();
 
 </script></body></html>
