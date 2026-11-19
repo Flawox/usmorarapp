@@ -22,6 +22,19 @@ SCHEDULE_PATH = Path(__file__).resolve().parent.parent / "public" / "schedule.js
 SUBGROUPS = ("1", "2")
 HTTP_CLIENT = local()
 
+# Paste file_id values received by this same Telegram bot.
+TELEGRAM_BOOKS = {
+    0: {"title": "English", "file_id": "BQACAgIAAxkBAAIIDWr-Pjc334X8kemK-ws0rqW3XhjAAALprQAC_yrxS6BsxmyyoY_-PQQ"},
+    1: {"title": "Limba română pentru străini", "file_id": "BQACAgIAAxkBAAIID2r-PjxlSdteN4CKgFmdrHhe3dL3AALrrQAC_yrxSznKJ70PPBnOPQQ"},
+    2: {"title": "Manual de limba română A1", "file_id": "BQACAgIAAxkBAAIIFGr-Pk_qEvQqDXOEBKQw3wdUopzrAALxrQAC_yrxS2GdNn8hqQWSPQQ"},
+    3: {"title": "Istoria românilor și universală · X (2024)", "file_id": "BQACAgIAAxkBAAIIF2r-PlTI9fh0_-TZuniZaM1tyml5AALyrQAC_yrxSwSD_C-hQwW4PQQ"},
+    4: {"title": "Istoria românilor și universală · XI (2020)", "file_id": "BQACAgIAAxkBAAIIEmr-Pk1P08wr92rkih4upoqXHq3pAALvrQAC_yrxSx7Ml6tzk0iiPQQ"},
+    5: {"title": "Istoria românilor și universală · XII (2024)", "file_id": "BQACAgIAAxkBAAIIEWr-PkiZlGeFyLH2Vb-3f3wc-I6uAALtrQAC_yrxS-UDtOBT0ST4PQQ"},
+    6: {"title": "Fizica · X", "file_id": "BQACAgIAAxkBAAIIE2r-Pk3OZTU5juWF6WAp3Ef7fLuhAALwrQAC_yrxS2fvVmJ4LlDGPQQ"},
+    7: {"title": "Eu sunt", "file_id": "BQACAgIAAxkBAAIIDmr-Pjm0QKdm38qYoLdSlTTfTsaRAALqrQAC_yrxSwymI7OlNvoIPQQ"},
+    8: {"title": "Note de curs Myro", "file_id": "BQACAgIAAxkBAAIIEGr-Pj88A86rQVIhK_GWliTsd173AALsrQAC_yrxS23O7DfTw-VwPQQ"},
+}
+
 
 class ApiError(Exception):
     def __init__(self, status, message):
@@ -116,6 +129,40 @@ def bot_chat_started(user_id):
         ):
             return False
     raise ApiError(503, unavailable)
+
+
+
+def send_book(data, user):
+    book_id = data.get("bookId")
+    if type(book_id) is not int or book_id not in TELEGRAM_BOOKS:
+        raise ApiError(400, "Выберите учебник из списка.")
+    book = TELEGRAM_BOOKS[book_id]
+    file_id = book["file_id"].strip()
+    if not file_id:
+        raise ApiError(503, "Отправка этого учебника пока не настроена.")
+    try:
+        with http_session().post(
+            f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}/sendDocument",
+            json={"chat_id": user["id"], "document": file_id, "caption": book["title"]},
+            timeout=(3, 10),
+            allow_redirects=False,
+        ) as response:
+            result = response.json()
+    except (requests.RequestException, ValueError):
+        raise ApiError(503, "Не удалось подтвердить отправку. Проверьте личный чат с ботом.") from None
+    if not isinstance(result, dict):
+        raise ApiError(502, "Telegram вернул некорректный ответ.")
+    if result.get("ok") is True:
+        return {"sent": True, "bookId": book_id}
+    code = result.get("error_code")
+    description = str(result.get("description", "")).lower()
+    if code == 403 or (code == 400 and "chat not found" in description):
+        raise ApiError(403, "Откройте чат с ботом, нажмите «Старт» и разрешите ему отправлять сообщения.")
+    if code == 429:
+        raise ApiError(429, "Слишком много отправок. Попробуйте немного позже.")
+    if code == 400:
+        raise ApiError(502, "Не удалось отправить PDF. Администратору нужно проверить file_id учебника.")
+    raise ApiError(503, "Telegram временно не смог отправить PDF. Попробуйте позже.")
 
 
 def supabase_rpc(name, params):
@@ -277,6 +324,8 @@ class handler(BaseHTTPRequestHandler):
             is_admin = str(user["id"]) in os.environ.get("HOMEWORK_ADMIN_IDS", "").replace(",", " ").split()
             if data.get("action") == "access":
                 result = {"started": bot_chat_started(user["id"])}
+            elif data.get("action") == "send_book":
+                result = send_book(data, user)
             else:
                 result = handle_homework(data, user, is_admin)
         except ApiError as error:
