@@ -112,6 +112,11 @@ html[data-th=dark] #ind{background:linear-gradient(180deg,rgba(255,255,255,.24),
 .bk{display:flex;align-items:center;gap:12px}.bi{flex:none;font-size:26px;width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(124,200,255,.38),rgba(47,140,255,.18))}
 .bt{flex:1;min-width:0}.bt b{display:block;font-size:14px;line-height:1.25}.bt small{color:var(--mut);font-size:12px}
 .op{flex:none;border:0;padding:9px 14px;border-radius:12px;color:#fff;font-weight:700;font-size:13px;font-family:inherit;background:linear-gradient(135deg,var(--b1),var(--b2));box-shadow:0 6px 14px rgba(11,91,211,.28)}.op:active{transform:scale(.95)}.bkh{margin-bottom:8px}
+.book-actions{display:flex;flex-direction:column;gap:7px;flex:none;min-width:104px}
+.book-send{border:1px solid var(--ln);border-radius:12px;background:rgba(47,140,255,.12);padding:8px 10px;color:var(--b2);font:inherit;font-size:12px;font-weight:600;line-height:1.25;cursor:pointer}
+html[data-th=dark] .book-send{color:var(--ac)}
+.book-send:disabled{cursor:wait;opacity:.6}
+.book-send-status{display:block;margin:6px 0 0;color:var(--mut);font-size:12px;line-height:1.3;overflow-wrap:anywhere}
 #rd{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:var(--bg)}#rd[hidden]{display:none}
 .rb{display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--sh)}
 .rb button,.rf button{flex:none;width:36px;height:36px;border:0;border-radius:12px;background:rgba(47,140,255,.14);color:var(--ac);font-weight:700;font-size:20px;font-family:inherit}
@@ -120,10 +125,6 @@ html[data-th=dark] #ind{background:linear-gradient(180deg,rgba(255,255,255,.24),
 .pg{width:100%;flex:none;background:#fff;border-radius:6px;box-shadow:0 2px 10px rgba(11,91,211,.18);overflow:hidden}.pg canvas{width:100%;height:100%;display:block}
 .ld{text-align:center;padding:60px 10px;color:var(--mut)}
 .rf{display:flex;align-items:center;gap:10px;padding:8px 14px calc(8px + env(safe-area-inset-bottom));background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}.rf input{flex:1;accent-color:#2f8cff}
-.fer{display:flex;justify-content:center;margin:14px 0 6px}.fer img{width:28px;height:28px;object-fit:cover;border-radius:7px}
-.bub{position:fixed;inset:0;z-index:99;pointer-events:none;overflow:hidden}
-.bub i{position:absolute;border-radius:50%;background-size:cover;background-position:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.75),inset -6px -8px 14px rgba(120,190,255,.45),0 4px 14px rgba(47,140,255,.35)}
-.bub i:after{content:"";position:absolute;left:18%;top:12%;width:30%;height:18%;border-radius:50%;background:rgba(255,255,255,.75);transform:rotate(-30deg);filter:blur(1px)}
 .li.hl{width:calc(100% - 12px);margin:6px;padding:12px 14px;border-radius:14px;color:#fff;font-weight:700;background:linear-gradient(135deg,var(--b1),var(--b2));box-shadow:0 6px 16px rgba(11,91,211,.3)}.li.hl i{color:#fff}.li.hl+.li{border-top:0}
 header{display:block;padding:14px 16px 14px}
 .hl{display:flex;align-items:center;gap:12px;min-width:0;position:relative;z-index:1}
@@ -806,13 +807,13 @@ function onb(){v.innerHTML=`<div class="card hero ob"><div class="e">🏛</div><
 $('#ok').onclick=()=>{S.ob=0;save();S.t='sch';setTab($('#nav button'));go()}}
 function profile(){const u=tg?.initDataUnsafe?.user,n=u?[u.first_name,u.last_name].filter(Boolean).join(' '):'Гость';
 const av=u?.photo_url?`<img class="ava" referrerpolicy="no-referrer" src="${esc(u.photo_url)}">`:`<div class="ava">${esc((n[0]||'?').toUpperCase())}</div>`;
-v.innerHTML=`<div class="card prof"><div class="ban"></div>${av}<div class="in"><h2 style="margin:8px 0 2px">${esc(n)}<span class="pill" id="profile-admin"${S.hwAdmin?'':' hidden'}>ADMIN</span></h2>${u?`${u.username?`<span class="pill">@${esc(u.username)}</span>`:''}<span class="pill">ID ${esc(u.id)}</span>${u.is_premium?'<span class="pill">⭐ Premium</span>':''}`:'<div class="hint" style="margin:4px 0 0">Откройте из Telegram, чтобы увидеть профиль</div>'}</div></div><div class="lbl">Настройки</div>${settings()}<div class="card list"><button class="li hl" id="bk"><span>📚</span>Учебники<i>›</i></button><button class="li" id="cc"><span>🧹</span>Очистить кэш учебников<i>›</i></button><button class="li" id="fg"><span>🔑</span>Забыть сохранённый IDNP<i>›</i></button><button class="li" id="rs" style="color:var(--bad)"><span>🔄</span>Сбросить настройки<i>›</i></button></div><p class="foot">Приложение находится в бета-версии. Дизайн со временем будет улучшаться. Возможны баги и ошибки. По всем вопросам писать: <a href="https://t.me/flawoxxx" id="ct">@flawoxxx</a></p><div class="fer"><img src="fernando.jpg" id="fer" alt=""></div>`;
+v.innerHTML=`<div class="card prof"><div class="ban"></div>${av}<div class="in"><h2 style="margin:8px 0 2px">${esc(n)}<span class="pill" id="profile-admin"${S.hwAdmin?'':' hidden'}>ADMIN</span></h2>${u?`${u.username?`<span class="pill">@${esc(u.username)}</span>`:''}<span class="pill">ID ${esc(u.id)}</span>${u.is_premium?'<span class="pill">⭐ Premium</span>':''}`:'<div class="hint" style="margin:4px 0 0">Откройте из Telegram, чтобы увидеть профиль</div>'}</div></div><div class="lbl">Настройки</div>${settings()}<div class="card list"><button class="li hl" id="bk"><span>📚</span>Учебники<i>›</i></button><button class="li" id="cc"><span>🧹</span>Очистить кэш учебников<i>›</i></button><button class="li" id="fg"><span>🔑</span>Забыть сохранённый IDNP<i>›</i></button><button class="li" id="rs" style="color:var(--bad)"><span>🔄</span>Сбросить настройки<i>›</i></button></div><p class="foot">Приложение находится в бета-версии. Дизайн со временем будет улучшаться. Возможны баги и ошибки. По всем вопросам писать: <a href="https://t.me/flawoxxx" id="ct">@flawoxxx</a></p>`;
 if(tg?.initData&&typeof S.hwAdmin!=='boolean'){
   const monday=weekMonday(calendarToday());
   fetchHomeworkList({group:S.g,subgroup:S.sg,date:weekKind(monday)===S.wk?monday:shiftDate(monday,7)},true)
     .then(data=>syncHomeworkRole(data?.isAdmin));
 }
-$('#fer').onclick=e=>bubbles(e.clientX,e.clientY);$('#ct').onclick=e=>{e.preventDefault();tg?.openTelegramLink?tg.openTelegramLink('https://t.me/flawoxxx'):window.open('https://t.me/flawoxxx')};
+$('#ct').onclick=e=>{e.preventDefault();tg?.openTelegramLink?tg.openTelegramLink('https://t.me/flawoxxx'):window.open('https://t.me/flawoxxx')};
 $('#bk').onclick=()=>{S.bk=1;books()};$('#cc').onclick=async()=>{try{await caches.delete('usm-books-v1')}catch(e){}LS.s('cb',[]);tg?.showAlert?tg.showAlert('Кэш учебников очищен'):alert('Кэш учебников очищен')};$('#fg').onclick=()=>{LS.s('idnp','');S.J=null;tg?.showAlert?tg.showAlert('IDNP удалён с устройства'):alert('IDNP удалён с устройства')};
 $('#rs').onclick=()=>{try{localStorage.clear()}catch{}S.th='auto';S.g='1';S.sg='1';homeworkCache.clear();S.J=null;S.ob=1;applyTheme();go()}}
 const BK=[{"id": 0, "f": "english.pdf", "t": "English", "s": "Английский язык", "e": "🇬🇧", "m": 10.1, "u": "https://pub-7e9088de38104efb9ff928b16778e937.r2.dev/English.pdf"}, {"id": 1, "f": "romana-straini.pdf", "t": "Limba română pentru străini", "s": "Румынский язык", "e": "🇷🇴", "m": 18.7, "u": "https://pub-7e9088de38104efb9ff928b16778e937.r2.dev/Limba%20Romana%20Pentru%20Straini.pdf"}, {"id": 2, "f": "romana-a1.pdf", "t": "Manual de limba română A1", "s": "Румынский язык · A1", "e": "🇷🇴", "m": 9.0, "u": "https://pub-7e9088de38104efb9ff928b16778e937.r2.dev/manual_limba_romana_a1_complet_compressed.pdf"}, {"id": 3, "f": "istoria-10.pdf", "t": "Istoria românilor și universală · X (2024)", "s": "История · 10 класс", "e": "📜", "m": 45.8, "u": "https://pub-7e9088de38104efb9ff928b16778e937.r2.dev/X_Istoria%20rom%C3%A2nilor%20%C8%99i%20universal%C4%83%20(a.%202024%2C%20limba%20rusa).pdf"}, {"id": 4, "f": "istoria-11.pdf", "t": "Istoria românilor și universală · XI (2020)", "s": "История · 11 класс", "e": "📜", "m": 40.2, "u": "https://pub-7e9088de38104efb9ff928b16778e937.r2.dev/XI_Istoria%20romana%20si%20universala%20(a.%202020%20in%20limba%20rusa).pdf"}, {"id": 5, "f": "istoria-12.pdf", "t": "Istoria românilor și universală · XII (2024)", "s": "История · 12 класс", "e": "📜", "m": 12.8, "u": "https://pub-7e9088de38104efb9ff928b16778e937.r2.dev/XII_Istoria_romanilor_si_universala_a_2024%2C_limba_rusa_compressed.pdf"}, {"id": 6, "f": "fizica-10.pdf", "t": "Fizica · X", "s": "Физика · 10 класс", "e": "⚛️", "m": 6.4, "u": "https://pub-7e9088de38104efb9ff928b16778e937.r2.dev/X_Fizica%20(in%20limba%20rusa).pdf"}, {"id": 7, "f": "eu-sunt.pdf", "t": "Eu sunt", "s": "Румынский язык", "e": "🇷🇴", "u": "https://pub-7e9088de38104efb9ff928b16778e937.r2.dev/Eu%20sunt.pdf"}, {"id": 8, "f": "note-myro.pdf", "t": "Note de curs Myro", "s": "Румынский язык", "e": "🇷🇴", "u": "https://pub-7e9088de38104efb9ff928b16778e937.r2.dev/Note-de-curs-Myro.pdf"}];
@@ -820,8 +821,62 @@ const ld=u=>new Promise((r,j)=>{const e=document.createElement('script');e.src=u
 const rd=$('#rd'),rsc=$('#sc'),rpg=$('#pgs'),sl=$('#sl'),gi=$('#gi'),ldt=$('#ldt'),PJ='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/';
 let PV=null,EB=null,PDF=null,bk=null,N=0,cp=1,lt=0,lastT=0,pd=0,pk=1,rdy=0,base=1;
 const cl=(x,a,b)=>Math.min(b,Math.max(a,x));
-function books(){v.innerHTML=`<div class="bkh"><button class="chip" id="bb">‹ Профиль</button></div><div class="lbl">📚 Учебники</div>`+BK.map(b=>`<div class="card bk"><div class="bi">${b.e}</div><div class="bt"><b>${esc(b.t)}</b><small>${esc(b.s)}${b.m?' · '+b.m+' МБ':''}${LS.g('cb',[]).includes(b.id)?' · ✅ сохранён':''}</small></div><button class="op" data-id="${b.id}">Открыть</button></div>`).join('');
-$('#bb').onclick=()=>{S.bk=0;profile()};v.querySelectorAll('.op').forEach(x=>x.onclick=()=>openBook(BK[+x.dataset.id]))}
+let sendingBook=null;
+const bookSendMessages=new Map();
+
+function updateBookSendButtons(){
+  for(const button of v.querySelectorAll('.book-send')){
+    const bookId=Number(button.dataset.id);
+    button.disabled=sendingBook!==null;
+    button.textContent=sendingBook===bookId?'Отправляем…':'Отправить в ТГ';
+    const message=button.closest('.bk').querySelector('.book-send-status');
+    message.textContent=bookSendMessages.get(bookId)||'';
+    message.hidden=!message.textContent;
+  }
+}
+
+async function sendBookToChat(bookId){
+  if(sendingBook!==null)return;
+  if(!tg?.initData){
+    tg?.showAlert?tg.showAlert('Откройте приложение внутри Telegram.'):alert('Откройте приложение внутри Telegram.');
+    return;
+  }
+  sendingBook=bookId;
+  bookSendMessages.delete(bookId);
+  updateBookSendButtons();
+  try{
+    const result=await homeworkRequest('send_book',{bookId});
+    if(result.sent!==true)throw new Error('Не удалось подтвердить отправку PDF.');
+    bookSendMessages.set(bookId,'PDF отправлен в личный чат с ботом.');
+  }catch(error){
+    const message=error instanceof TypeError||error instanceof SyntaxError?
+      'Не удалось подтвердить отправку. Проверь личный чат с ботом.':error.message;
+    bookSendMessages.set(bookId,message);
+    if(error.status===403){
+      if(startStorageKey)LS.s(startStorageKey,false);
+      accessGranted=false;
+      startStatus.textContent='';
+      showStartGate(true);
+    }
+  }finally{
+    sendingBook=null;
+    updateBookSendButtons();
+  }
+}
+
+function books(){
+  v.innerHTML=`<div class="bkh"><button class="chip" id="bb">‹ Профиль</button></div><div class="lbl">📚 Учебники</div>`+
+    BK.map(b=>`<div class="card bk"><div class="bi">${b.e}</div><div class="bt"><b>${esc(b.t)}</b>
+      <small>${esc(b.s)}${b.m?' · '+b.m+' МБ':''}${LS.g('cb',[]).includes(b.id)?' · ✅ сохранён':''}</small>
+      <p class="book-send-status" role="status" hidden></p></div>
+      <div class="book-actions"><button class="op" type="button" data-id="${b.id}">Открыть</button>
+      <button class="book-send" type="button" data-id="${b.id}" aria-label="Отправить ${esc(b.t)} в личный чат">Отправить в ТГ</button></div></div>`).join('');
+  $('#bb').onclick=()=>{S.bk=0;profile()};
+  v.querySelectorAll('.op').forEach(button=>button.onclick=()=>openBook(BK.find(book=>book.id===Number(button.dataset.id))));
+  v.querySelectorAll('.book-send').forEach(button=>button.onclick=()=>sendBookToChat(Number(button.dataset.id)));
+  updateBookSendButtons();
+}
+
 const setP=i=>{cp=i;if(document.activeElement!=gi)gi.value=i;$('#gn').textContent='/ '+N;sl.value=i;rd.style.setProperty('--p',(i/N*100)+'%')};
 const zlab=()=>{$('#zl').textContent=PV?Math.round(PV.currentScale/base*100)+'%':'100%'};
 const pagesVis=()=>{const H=innerHeight,a=[];for(const p of rpg.children){const r=p.getBoundingClientRect();if(r.bottom>-200&&r.top<H+200)a.push([p,r]);else if(r.top>=H+200)break}return a};
@@ -862,11 +917,6 @@ rsc.addEventListener('touchmove',e=>{if(e.touches.length==2&&pd){e.preventDefaul
 rsc.addEventListener('touchend',e=>{if(pd&&e.touches.length<2){const k=pk;pd=0;pv.forEach(p=>{p.style.transform='';p.style.transformOrigin=''});pv=[];if(PV&&Math.abs(k-1)>.02)zoomAt(k,pf[0],pf[1])}});
 rsc.onclick=e=>{if(e.target.closest('a'))return;const n=Date.now();if(n-lt<300){lt=0;clearTimeout(rsc._t);if(PV)zoomAt((PV.currentScale/base<1.5?base*2:base)/PV.currentScale,e.clientX,e.clientY)}else{lt=n;rsc._t=setTimeout(()=>{lt=0;rd.classList.toggle('hb')},300)}};
 rsc.onscroll=()=>{const t=rsc.scrollTop,sh=!$('#fb').hidden;if(!sh&&t-lastT>14)rd.classList.add('hb');else if(lastT-t>14)rd.classList.remove('hb');lastT=t};
-function bubbles(x,y){tg?.HapticFeedback?.impactOccurred('medium');const L=document.createElement('div'),W=innerWidth,H=innerHeight;L.className='bub';document.body.appendChild(L);
-for(let i=0;i<48;i++){const s=26+Math.random()*64,e=document.createElement('i'),tx=(Math.random()-.5)*W*1.7,ty=(Math.random()-.72)*H*1.5;
-e.style.cssText=`width:${s}px;height:${s}px;left:${x-s/2}px;top:${y-s/2}px;background-image:url(fernando.jpg)`;L.appendChild(e);
-e.animate([{transform:'translate(0,0) scale(.2)',opacity:0},{transform:`translate(${tx*.35}px,${ty*.35}px) scale(1)`,opacity:1,offset:.22},{transform:`translate(${tx}px,${ty}px) scale(1.1)`,opacity:0}],{duration:2300+Math.random()*500,delay:Math.random()*200,easing:'cubic-bezier(.2,.7,.3,1)',fill:'both'})}
-setTimeout(()=>L.remove(),3050)}
 const WM=c=>c==0?['☀️','Ясно']:c<3?['🌤','Малооблачно']:c==3?['☁️','Пасмурно']:c<50?['🌫','Туман']:c<60?['🌦','Морось']:c<70?['🌧','Дождь']:c<80?['❄️','Снег']:c<90?['🌦','Ливень']:['⛈','Гроза'];
 async function weather(){v.innerHTML='<div class="sk" style="height:230px"></div>'+'<div class="sk"></div>'.repeat(3);
 try{const r=await(await fetch('https://api.open-meteo.com/v1/forecast?latitude=47.0105&longitude=28.8638&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=5')).json(),c=r.current,[e,d]=WM(c.weather_code);
